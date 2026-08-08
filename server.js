@@ -5,11 +5,15 @@ const bcrypt = require('bcryptjs');
 const path = require('path');
 const Database = require('better-sqlite3');
 const fs = require('fs');
+const cron = require('node-cron');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const ALERT_LEAD_DAYS_WITH_REFILL = parseInt(process.env.ALERT_LEAD_DAYS_WITH_REFILL || '3', 10);
 const ALERT_LEAD_DAYS_NO_REFILL = parseInt(process.env.ALERT_LEAD_DAYS_NO_REFILL || '5', 10);
+const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || '';
+const REMINDER_CRON_SCHEDULE = process.env.REMINDER_CRON_SCHEDULE || '0 8 * * *';
+const REMINDER_TIMEZONE = process.env.REMINDER_TIMEZONE || 'America/Detroit';
 
 // ---------- DB setup ----------
 const dataDir = path.join(__dirname, 'data');
@@ -203,6 +207,105 @@ app.get('/api/medications/:id/history', requireAuth, (req, res) => {
     'SELECT * FROM pickup_history WHERE medication_id = ? ORDER BY picked_up_date DESC'
   ).all(req.params.id);
   res.json(rows);
+});
+
+// ---------- Discord reminders ----------
+function getMedsNeedingAttention() {
+  const rows = db.prepare(
+    'SELECT * FROM medications WHERE archived = 0 ORDER BY name COLLATE NOCASE'
+  ).all();
+  return rows.map(serializeMed).filter(m => m.status === 'due_soon' || m.status === 'overdue');
+}
+
+function buildReminderEmbed(meds) {
+  const overdue = meds.filter(m => m.status === 'overdue');
+  const dueSoon = meds.filter(m => m.status === 'due_soon');
+
+  const lines = [];
+  if (overdue.length) {
+    lines.push('**Overdue**');
+    overdue.forEach(m => {
+      lines.push(`⚠️ **${m.name}** — ${m.next_action} · was due ${m.next_call_date} · ${m.refills_remaining} refill${m.refills_remaining === 1 ? '' : 's'} left`);
+    });
+  }
+  if (dueSoon.length) {
+    if (lines.length) lines.push('');
+    lines.push('**Due soon**');
+    dueSoon.forEach(m => {
+      lines.push(`🟡 **${m.name}** — ${m.next_action} · due ${m.next_call_date} · ${m.refills_remaining} refill${m.refills_remaining === 1 ? '' : 's'} left`);
+    });
+  }
+
+  return {
+    embeds: [{
+      title: 'Med refill reminder',
+      description: lines.join('\n'),
+      color: overdue.length ? 0xb8483c : 0xb8862c,
+      timestamp: new Date().toISOString()
+    }]
+  };
+}
+
+async function sendDiscordReminder(meds) {
+  if (!DISCORD_WEBHOOK_URL) {
+    console.log('DISCORD_WEBHOOK_URL not set, skipping reminder send');
+    return { sent: false, reason: 'no_webhook_configured' };
+  }
+  const payload = buildReminderEmbed(meds);
+  const res = await fetch(DISCORD_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Discord webhook failed: ${res.status} ${text}`);
+  }
+  return { sent: true };
+}
+
+async function runDailyReminderCheck() {
+  const meds = getMedsNeedingAttention();
+  if (meds.length === 0) {
+    console.log('Reminder check: nothing due soon or overdue, skipping send');
+    return;
+  }
+  try {
+    await sendDiscordReminder(meds);
+    console.log(`Reminder check: sent Discord reminder for ${meds.length} medication(s)`);
+  } catch (err) {
+    console.error('Reminder check: failed to send Discord reminder', err);
+  }
+}
+
+if (DISCORD_WEBHOOK_URL) {
+  cron.schedule(REMINDER_CRON_SCHEDULE, runDailyReminderCheck, { timezone: REMINDER_TIMEZONE });
+  console.log(`Discord reminders scheduled: "${REMINDER_CRON_SCHEDULE}" (${REMINDER_TIMEZONE})`);
+} else {
+  console.log('DISCORD_WEBHOOK_URL not set — reminder schedule disabled');
+}
+
+// Manually trigger a reminder check (also useful to verify webhook connectivity)
+app.post('/api/test-reminder', requireAuth, async (req, res) => {
+  if (!DISCORD_WEBHOOK_URL) {
+    return res.status(400).json({ error: 'DISCORD_WEBHOOK_URL is not configured in .env' });
+  }
+  const meds = getMedsNeedingAttention();
+  try {
+    if (meds.length === 0) {
+      // Send a lightweight confirmation ping so the button always gives feedback
+      await fetch(DISCORD_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: '✅ Med Tracker test ping — webhook is working. Nothing is due soon or overdue right now.' })
+      });
+    } else {
+      await sendDiscordReminder(meds);
+    }
+    res.json({ ok: true, medsFlagged: meds.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.listen(PORT, () => {

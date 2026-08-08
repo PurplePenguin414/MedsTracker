@@ -393,6 +393,28 @@ document.getElementById('history-close-btn').addEventListener('click', () => {
 
 document.getElementById('add-med-btn').addEventListener('click', startAdd);
 
+document.getElementById('test-reminder-btn').addEventListener('click', async () => {
+  const btn = document.getElementById('test-reminder-btn');
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+  try {
+    const res = await fetch('/api/test-reminder', { method: 'POST' });
+    const data = await res.json();
+    if (res.ok) {
+      alert(data.medsFlagged > 0
+        ? `Sent — ${data.medsFlagged} medication(s) flagged in the message.`
+        : 'Sent a test ping — nothing is due soon or overdue right now.');
+    } else {
+      alert(`Failed: ${data.error}`);
+    }
+  } catch (err) {
+    alert(`Failed: ${err.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Test Discord reminder';
+  }
+});
+
 // Expose functions used by inline onclick handlers
 window.markPickedUp = markPickedUp;
 window.startEdit = startEdit;

@@ -20,6 +20,21 @@ The app computes:
 Clicking **Mark picked up** logs the pickup, resets the last-picked-up date to today,
 and decrements the refill count by one. Full pickup history is kept per medication.
 
+## Discord reminders
+
+Set `DISCORD_WEBHOOK_URL` in `.env` to enable a daily check (default 8:00 AM
+`America/Detroit`, both configurable via `REMINDER_CRON_SCHEDULE` and
+`REMINDER_TIMEZONE`). If anything is due soon or overdue, it posts a summary
+to that Discord channel. If nothing needs attention that day, it stays quiet
+— no daily noise for meds that are on track.
+
+To get a webhook URL: in Discord, go to the target channel's Settings →
+Integrations → Webhooks → New Webhook, copy the URL.
+
+Use the **Test Discord reminder** button in the app to fire an immediate
+check (great for confirming the webhook works right after deploying, without
+waiting for the scheduled time).
+
 ## Local setup
 
 ```bash
