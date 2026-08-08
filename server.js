@@ -8,7 +8,8 @@ const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const ALERT_LEAD_DAYS = parseInt(process.env.ALERT_LEAD_DAYS || '3', 10);
+const ALERT_LEAD_DAYS_WITH_REFILL = parseInt(process.env.ALERT_LEAD_DAYS_WITH_REFILL || '3', 10);
+const ALERT_LEAD_DAYS_NO_REFILL = parseInt(process.env.ALERT_LEAD_DAYS_NO_REFILL || '5', 10);
 
 // ---------- DB setup ----------
 const dataDir = path.join(__dirname, 'data');
@@ -93,11 +94,14 @@ function computeStatus(med) {
   const today = todayStr();
   const daysUntilCall = daysBetween(today, nextCallDateStr);
 
+  const hasPharmacyRefill = med.refills_remaining > 0;
+  const alertLeadDays = hasPharmacyRefill ? ALERT_LEAD_DAYS_WITH_REFILL : ALERT_LEAD_DAYS_NO_REFILL;
+
   let status = 'ok';
   if (daysUntilCall < 0) status = 'overdue';
-  else if (daysUntilCall <= ALERT_LEAD_DAYS) status = 'due_soon';
+  else if (daysUntilCall <= alertLeadDays) status = 'due_soon';
 
-  const nextAction = med.refills_remaining > 0
+  const nextAction = hasPharmacyRefill
     ? 'Call pharmacy to refill'
     : 'Call doctor for new prescription';
 
