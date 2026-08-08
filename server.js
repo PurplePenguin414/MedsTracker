@@ -14,6 +14,7 @@ const ALERT_LEAD_DAYS_NO_REFILL = parseInt(process.env.ALERT_LEAD_DAYS_NO_REFILL
 const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || '';
 const REMINDER_CRON_SCHEDULE = process.env.REMINDER_CRON_SCHEDULE || '0 8 * * *';
 const REMINDER_TIMEZONE = process.env.REMINDER_TIMEZONE || 'America/Detroit';
+const APP_URL = process.env.APP_URL || '';
 
 // ---------- DB setup ----------
 const dataDir = path.join(__dirname, 'data');
@@ -295,9 +296,11 @@ function buildReminderEmbed(meds) {
   return {
     embeds: [{
       title: 'Med refill reminder',
+      url: APP_URL || undefined,
       description: lines.join('\n'),
       color: overdue.length ? 0xb8483c : 0xb8862c,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      footer: APP_URL ? { text: APP_URL } : undefined
     }]
   };
 }
@@ -353,7 +356,7 @@ app.post('/api/test-reminder', requireAuth, async (req, res) => {
       await fetch(DISCORD_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: '✅ Med Tracker test ping — webhook is working. Nothing is due soon or overdue right now.' })
+        body: JSON.stringify({ content: `✅ Med Tracker test ping — webhook is working. Nothing is due soon or overdue right now.${APP_URL ? `\n${APP_URL}` : ''}` })
       });
     } else {
       await sendDiscordReminder(meds);
