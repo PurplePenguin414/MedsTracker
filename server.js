@@ -43,6 +43,16 @@ CREATE TABLE IF NOT EXISTS pickup_history (
 );
 `);
 
+// ---------- Lightweight migrations (safe to run against existing data) ----------
+function ensureColumn(table, column, definition) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!cols.some(c => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+ensureColumn('medications', 'as_needed', 'INTEGER NOT NULL DEFAULT 0');
+ensureColumn('medications', 'paused', 'INTEGER NOT NULL DEFAULT 0');
+
 // ---------- Middleware ----------
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -91,6 +101,25 @@ function todayStr() {
 }
 
 function computeStatus(med) {
+  if (med.paused) {
+    return {
+      next_call_date: null,
+      days_until_call: null,
+      status: 'paused',
+      next_action: 'Paused — not currently taking'
+    };
+  }
+
+  if (med.as_needed) {
+    const hasPharmacyRefill = med.refills_remaining > 0;
+    return {
+      next_call_date: null,
+      days_until_call: null,
+      status: hasPharmacyRefill ? 'as_needed' : 'as_needed_no_refills',
+      next_action: hasPharmacyRefill ? 'Take as needed' : 'Call doctor for new prescription'
+    };
+  }
+
   const nextCallDate = new Date(med.last_picked_up_date + 'T00:00:00');
   nextCallDate.setDate(nextCallDate.getDate() + med.refill_interval_days);
   const nextCallDateStr = nextCallDate.toISOString().slice(0, 10);
@@ -130,21 +159,24 @@ app.get('/api/medications', requireAuth, (req, res) => {
 });
 
 app.post('/api/medications', requireAuth, (req, res) => {
-  const { name, dosage, refill_interval_days, last_picked_up_date, refills_remaining, notes } = req.body;
-  if (!name || !refill_interval_days || !last_picked_up_date) {
-    return res.status(400).json({ error: 'name, refill_interval_days, and last_picked_up_date are required' });
+  const { name, dosage, refill_interval_days, last_picked_up_date, refills_remaining, notes, as_needed } = req.body;
+  const isAsNeeded = !!as_needed;
+
+  if (!name || !last_picked_up_date || (!isAsNeeded && !refill_interval_days)) {
+    return res.status(400).json({ error: 'name, last_picked_up_date, and (unless as-needed) refill_interval_days are required' });
   }
   const stmt = db.prepare(`
-    INSERT INTO medications (name, dosage, refill_interval_days, last_picked_up_date, refills_remaining, notes)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO medications (name, dosage, refill_interval_days, last_picked_up_date, refills_remaining, notes, as_needed)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
   const info = stmt.run(
     name.trim(),
     dosage ? dosage.trim() : null,
-    parseInt(refill_interval_days, 10),
+    isAsNeeded ? 0 : parseInt(refill_interval_days, 10),
     last_picked_up_date,
     refills_remaining != null ? parseInt(refills_remaining, 10) : 0,
-    notes ? notes.trim() : null
+    notes ? notes.trim() : null,
+    isAsNeeded ? 1 : 0
   );
   const med = db.prepare('SELECT * FROM medications WHERE id = ?').get(info.lastInsertRowid);
   res.json(serializeMed(med));
@@ -155,27 +187,41 @@ app.put('/api/medications/:id', requireAuth, (req, res) => {
   const existing = db.prepare('SELECT * FROM medications WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Not found' });
 
-  const fields = ['name', 'dosage', 'refill_interval_days', 'last_picked_up_date', 'refills_remaining', 'notes'];
+  const fields = ['name', 'dosage', 'refill_interval_days', 'last_picked_up_date', 'refills_remaining', 'notes', 'as_needed', 'paused'];
   const updates = {};
   for (const f of fields) {
     if (req.body[f] !== undefined) updates[f] = req.body[f];
   }
 
   const merged = { ...existing, ...updates };
+  const isAsNeeded = !!merged.as_needed;
   db.prepare(`
-    UPDATE medications SET name=?, dosage=?, refill_interval_days=?, last_picked_up_date=?, refills_remaining=?, notes=?
+    UPDATE medications SET name=?, dosage=?, refill_interval_days=?, last_picked_up_date=?, refills_remaining=?, notes=?, as_needed=?, paused=?
     WHERE id=?
   `).run(
     merged.name,
     merged.dosage,
-    parseInt(merged.refill_interval_days, 10),
+    isAsNeeded ? 0 : parseInt(merged.refill_interval_days, 10),
     merged.last_picked_up_date,
     parseInt(merged.refills_remaining, 10),
     merged.notes,
+    isAsNeeded ? 1 : 0,
+    merged.paused ? 1 : 0,
     id
   );
   const med = db.prepare('SELECT * FROM medications WHERE id = ?').get(id);
   res.json(serializeMed(med));
+});
+
+app.post('/api/medications/:id/toggle-paused', requireAuth, (req, res) => {
+  const { id } = req.params;
+  const med = db.prepare('SELECT * FROM medications WHERE id = ?').get(id);
+  if (!med) return res.status(404).json({ error: 'Not found' });
+
+  const newPaused = med.paused ? 0 : 1;
+  db.prepare('UPDATE medications SET paused = ? WHERE id = ?').run(newPaused, id);
+  const updated = db.prepare('SELECT * FROM medications WHERE id = ?').get(id);
+  res.json(serializeMed(updated));
 });
 
 app.delete('/api/medications/:id', requireAuth, (req, res) => {
@@ -214,12 +260,15 @@ function getMedsNeedingAttention() {
   const rows = db.prepare(
     'SELECT * FROM medications WHERE archived = 0 ORDER BY name COLLATE NOCASE'
   ).all();
-  return rows.map(serializeMed).filter(m => m.status === 'due_soon' || m.status === 'overdue');
+  return rows.map(serializeMed).filter(m =>
+    m.status === 'due_soon' || m.status === 'overdue' || m.status === 'as_needed_no_refills'
+  );
 }
 
 function buildReminderEmbed(meds) {
   const overdue = meds.filter(m => m.status === 'overdue');
   const dueSoon = meds.filter(m => m.status === 'due_soon');
+  const asNeededOut = meds.filter(m => m.status === 'as_needed_no_refills');
 
   const lines = [];
   if (overdue.length) {
@@ -233,6 +282,13 @@ function buildReminderEmbed(meds) {
     lines.push('**Due soon**');
     dueSoon.forEach(m => {
       lines.push(`🟡 **${m.name}** — ${m.next_action} · due ${m.next_call_date} · ${m.refills_remaining} refill${m.refills_remaining === 1 ? '' : 's'} left`);
+    });
+  }
+  if (asNeededOut.length) {
+    if (lines.length) lines.push('');
+    lines.push('**As-needed meds out of refills**');
+    asNeededOut.forEach(m => {
+      lines.push(`🟠 **${m.name}** — ${m.next_action} · no fixed schedule, but 0 refills left`);
     });
   }
 

@@ -20,6 +20,22 @@ The app computes:
 Clicking **Mark picked up** logs the pickup, resets the last-picked-up date to today,
 and decrements the refill count by one. Full pickup history is kept per medication.
 
+## As-needed medications
+
+Check "As needed — no fixed refill schedule" in the add/edit form to skip the
+date/interval tracking entirely. These meds never show up as due soon or
+overdue. They still track refills remaining, and if that count hits 0
+they're flagged as "Refills needed" (in the app and in Discord reminders) —
+since even an as-needed med eventually needs a new prescription.
+
+## Pause / resume
+
+The **Pause** button on a medication stops it from being tracked or alerted
+on, without deleting it or losing its pickup history. Useful if a
+prescription was discontinued but you might revisit it, or you're taking a
+break. **Resume** brings it back into normal tracking, picking up right
+where it left off. Paused medications never appear in Discord reminders.
+
 ## Discord reminders
 
 Set `DISCORD_WEBHOOK_URL` in `.env` to enable a daily check (default 8:00 AM

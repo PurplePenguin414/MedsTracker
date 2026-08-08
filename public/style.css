@@ -157,6 +157,9 @@ body {
 .med-card.status-overdue { border-left-color: var(--red); }
 .med-card.status-due_soon { border-left-color: var(--amber); }
 .med-card.status-ok { border-left-color: var(--green); }
+.med-card.status-as_needed { border-left-color: #8a8dc4; }
+.med-card.status-as_needed_no_refills { border-left-color: var(--amber); }
+.med-card.status-paused { border-left-color: var(--muted); opacity: 0.7; }
 
 .med-card-top {
   display: flex;
@@ -186,6 +189,9 @@ body {
 .status-pill.status-overdue { background: var(--red-bg); color: var(--red); }
 .status-pill.status-due_soon { background: var(--amber-bg); color: var(--amber); }
 .status-pill.status-ok { background: var(--green-bg); color: var(--green); }
+.status-pill.status-as_needed { background: #ecebf8; color: #5b5ea6; }
+.status-pill.status-as_needed_no_refills { background: var(--amber-bg); color: var(--amber); }
+.status-pill.status-paused { background: var(--surface2); color: var(--muted); }
 
 .med-details {
   display: grid;
@@ -260,6 +266,17 @@ body {
   grid-column: 1 / -1;
 }
 .field .optional { font-weight: normal; opacity: 0.7; }
+.field.checkbox-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  color: var(--text);
+}
+.field.checkbox-field input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
 .field input,
 .field select,
 .field textarea {

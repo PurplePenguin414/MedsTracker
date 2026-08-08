@@ -105,7 +105,11 @@ function daysLabel(days) {
 function statusLabel(status) {
   if (status === 'overdue') return 'Overdue';
   if (status === 'due_soon') return 'Due soon';
-  return 'On track';
+  if (status === 'ok') return 'On track';
+  if (status === 'as_needed') return 'As needed';
+  if (status === 'as_needed_no_refills') return 'Refills needed';
+  if (status === 'paused') return 'Paused';
+  return status;
 }
 
 function escapeHtml(str) {
@@ -131,10 +135,10 @@ function renderMedList() {
     return;
   }
 
-  const order = { overdue: 0, due_soon: 1, ok: 2 };
+  const order = { overdue: 0, due_soon: 1, as_needed_no_refills: 2, ok: 3, as_needed: 4, paused: 5 };
   const sorted = [...currentMeds].sort((a, b) => {
     if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];
-    return a.days_until_call - b.days_until_call;
+    return (a.days_until_call ?? 0) - (b.days_until_call ?? 0);
   });
 
   sorted.forEach(med => {
@@ -151,6 +155,27 @@ function renderMedList() {
 function renderViewCard(med) {
   const refillsClass = med.refills_remaining === 0 ? 'red' : (med.refills_remaining <= 1 ? 'amber' : 'green');
   const isConfirmingDelete = confirmingDeleteId === med.id;
+  const isPaused = med.status === 'paused';
+  const isAsNeeded = med.as_needed && !isPaused;
+
+  const nextCallBlock = (isPaused || isAsNeeded)
+    ? `
+        <div class="med-detail">
+          <div class="k">Schedule</div>
+          <div class="v strong">${isPaused ? 'Paused — no alerts' : 'As needed — no fixed schedule'}</div>
+        </div>
+      `
+    : `
+        <div class="med-detail">
+          <div class="k">Next call-in</div>
+          <div class="v strong">${fmtDate(med.next_call_date)}</div>
+          <div class="v ${med.status === 'overdue' ? 'red' : med.status === 'due_soon' ? 'amber' : 'green'}">${daysLabel(med.days_until_call)}</div>
+        </div>
+        <div class="med-detail">
+          <div class="k">Refill interval</div>
+          <div class="v">Every ${med.refill_interval_days} days</div>
+        </div>
+      `;
 
   return `
     <div class="med-card status-${med.status}" data-id="${med.id}">
@@ -163,11 +188,7 @@ function renderViewCard(med) {
       </div>
 
       <div class="med-details">
-        <div class="med-detail">
-          <div class="k">Next call-in</div>
-          <div class="v strong">${fmtDate(med.next_call_date)}</div>
-          <div class="v ${med.status === 'overdue' ? 'red' : med.status === 'due_soon' ? 'amber' : 'green'}">${daysLabel(med.days_until_call)}</div>
-        </div>
+        ${nextCallBlock}
         <div class="med-detail">
           <div class="k">Refills left at pharmacy</div>
           <div class="v strong ${refillsClass}">${med.refills_remaining}</div>
@@ -180,17 +201,14 @@ function renderViewCard(med) {
           <div class="k">Last picked up</div>
           <div class="v">${fmtDate(med.last_picked_up_date)}</div>
         </div>
-        <div class="med-detail">
-          <div class="k">Refill interval</div>
-          <div class="v">Every ${med.refill_interval_days} days</div>
-        </div>
       </div>
 
       ${med.notes ? `<div class="med-notes">${escapeHtml(med.notes)}</div>` : ''}
 
       <div class="med-actions">
-        <button class="btn btn-primary btn-small" onclick="markPickedUp(${med.id})">Mark picked up</button>
+        ${isPaused ? '' : `<button class="btn btn-primary btn-small" onclick="markPickedUp(${med.id})">Mark picked up</button>`}
         <button class="btn btn-ghost btn-small" onclick="startEdit(${med.id})">Edit</button>
+        <button class="btn btn-ghost btn-small" onclick="togglePaused(${med.id})">${isPaused ? 'Resume' : 'Pause'}</button>
         <button class="btn btn-ghost btn-small" onclick="openHistory(${med.id})">History</button>
         ${isConfirmingDelete ? '' : `<button class="btn btn-ghost btn-small" onclick="startDeleteConfirm(${med.id})">Delete</button>`}
       </div>
@@ -226,6 +244,7 @@ function renderEditCard(med) {
   const lastPickedUp = isNew ? todayStr() : med.last_picked_up_date;
   const refillsRemaining = isNew ? 0 : med.refills_remaining;
   const notes = isNew ? '' : (med.notes || '');
+  const isAsNeeded = isNew ? false : !!med.as_needed;
   const isPreset = INTERVAL_PRESETS.includes(interval);
 
   return `
@@ -241,14 +260,19 @@ function renderEditCard(med) {
           <input type="text" class="ed-dosage" value="${escapeHtml(dosage)}" placeholder="e.g. 10mg, 1 tablet daily">
         </label>
 
-        <label class="field">
+        <label class="field field-wide checkbox-field">
+          <input type="checkbox" class="ed-as-needed" onchange="toggleAsNeeded(this)" ${isAsNeeded ? 'checked' : ''}>
+          As needed — no fixed refill schedule
+        </label>
+
+        <label class="field ed-interval-wrap" style="${isAsNeeded ? 'display:none' : ''}">
           Refill every
           <select class="ed-interval-select" onchange="toggleCustomInterval(this)">
             ${intervalOptionsHtml(interval)}
           </select>
         </label>
 
-        <label class="field ed-interval-custom-wrap" style="${isPreset ? 'display:none' : ''}">
+        <label class="field ed-interval-custom-wrap" style="${(isAsNeeded || isPreset) ? 'display:none' : ''}">
           Custom days
           <input type="number" class="ed-interval-custom" min="1" value="${isPreset ? '' : interval}" placeholder="e.g. 45">
         </label>
@@ -275,6 +299,20 @@ function renderEditCard(med) {
       </div>
     </div>
   `;
+}
+
+function toggleAsNeeded(checkboxEl) {
+  const card = checkboxEl.closest('.med-card');
+  const intervalWrap = card.querySelector('.ed-interval-wrap');
+  const customWrap = card.querySelector('.ed-interval-custom-wrap');
+  if (checkboxEl.checked) {
+    intervalWrap.style.display = 'none';
+    customWrap.style.display = 'none';
+  } else {
+    intervalWrap.style.display = '';
+    const select = card.querySelector('.ed-interval-select');
+    if (select.value === 'custom') customWrap.style.display = '';
+  }
 }
 
 function toggleCustomInterval(selectEl) {
@@ -308,22 +346,28 @@ function cancelEdit() {
 
 async function saveEdit(id) {
   const card = document.querySelector(`.med-card[data-id="${id}"]`);
-  const intervalSelect = card.querySelector('.ed-interval-select');
-  const intervalDays = intervalSelect.value === 'custom'
-    ? parseInt(card.querySelector('.ed-interval-custom').value, 10)
-    : parseInt(intervalSelect.value, 10);
+  const isAsNeeded = card.querySelector('.ed-as-needed').checked;
+
+  let intervalDays = null;
+  if (!isAsNeeded) {
+    const intervalSelect = card.querySelector('.ed-interval-select');
+    intervalDays = intervalSelect.value === 'custom'
+      ? parseInt(card.querySelector('.ed-interval-custom').value, 10)
+      : parseInt(intervalSelect.value, 10);
+  }
 
   const payload = {
     name: card.querySelector('.ed-name').value.trim(),
     dosage: card.querySelector('.ed-dosage').value.trim(),
-    refill_interval_days: intervalDays,
+    refill_interval_days: isAsNeeded ? 0 : intervalDays,
     last_picked_up_date: card.querySelector('.ed-last-picked-up').value,
     refills_remaining: parseInt(card.querySelector('.ed-refills-remaining').value, 10) || 0,
-    notes: card.querySelector('.ed-notes').value.trim()
+    notes: card.querySelector('.ed-notes').value.trim(),
+    as_needed: isAsNeeded
   };
 
-  if (!payload.name || !intervalDays || !payload.last_picked_up_date) {
-    alert('Please fill in medication name, refill interval, and last picked up date.');
+  if (!payload.name || !payload.last_picked_up_date || (!isAsNeeded && !intervalDays)) {
+    alert('Please fill in medication name, last picked up date, and refill interval (unless marked as needed).');
     return;
   }
 
@@ -338,6 +382,12 @@ async function saveEdit(id) {
   });
 
   editingId = null;
+  loadMeds();
+}
+
+// ---------- Pause / resume ----------
+async function togglePaused(id) {
+  await fetch(`/api/medications/${id}/toggle-paused`, { method: 'POST' });
   loadMeds();
 }
 
@@ -425,5 +475,7 @@ window.cancelDeleteConfirm = cancelDeleteConfirm;
 window.confirmDelete = confirmDelete;
 window.openHistory = openHistory;
 window.toggleCustomInterval = toggleCustomInterval;
+window.toggleAsNeeded = toggleAsNeeded;
+window.togglePaused = togglePaused;
 
 checkSession();
