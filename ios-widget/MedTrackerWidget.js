@@ -44,7 +44,7 @@ function daysLabelFor(med) {
 
 async function createWidget(data) {
   const w = new ListWidget();
-  w.backgroundColor = new Color("#f7f5f0");
+  w.backgroundColor = new Color("#000000");
   w.url = data.app_url || WIDGET_URL.replace("/api/widget/summary", "");
   w.setPadding(14, 14, 14, 14);
 
@@ -57,7 +57,7 @@ async function createWidget(data) {
 
   const title = w.addText("💊 Med Tracker");
   title.font = Font.boldSystemFont(15);
-  title.textColor = new Color("#2b2822");
+  title.textColor = new Color("#ffffff");
   w.addSpacer(6);
 
   const totalFlags = data.counts.overdue + data.counts.due_soon + data.counts.as_needed_no_refills;
@@ -71,7 +71,7 @@ async function createWidget(data) {
       `${data.counts.overdue} overdue · ${data.counts.due_soon} due soon`
     );
     summary.font = Font.systemFont(11);
-    summary.textColor = new Color("#8a8478");
+    summary.textColor = new Color("#9a9a9a");
     w.addSpacer(8);
 
     const shown = data.needs_attention.slice(0, 4);
@@ -94,7 +94,7 @@ async function createWidget(data) {
 
       const days = row.addText(daysLabelFor(med));
       days.font = Font.systemFont(10);
-      days.textColor = colorFor(med.status);
+      days.textColor = new Color("#9a9a9a");
       days.rightAlignText();
 
       w.addSpacer(3);
@@ -104,7 +104,7 @@ async function createWidget(data) {
       w.addSpacer(2);
       const more = w.addText(`+${data.needs_attention.length - shown.length} more`);
       more.font = Font.systemFont(10);
-      more.textColor = new Color("#8a8478");
+      more.textColor = new Color("#9a9a9a");
     }
   }
 
