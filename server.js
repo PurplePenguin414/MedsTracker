@@ -99,7 +99,16 @@ function daysBetween(a, b) {
 }
 
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  // Return today's date as experienced in REMINDER_TIMEZONE, not UTC —
+  // otherwise the app can think it's tomorrow in the evening (UTC is
+  // ahead of US timezones).
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: REMINDER_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  return fmt.format(new Date());
 }
 
 function computeStatus(med) {
