@@ -36,6 +36,29 @@ prescription was discontinued but you might revisit it, or you're taking a
 break. **Resume** brings it back into normal tracking, picking up right
 where it left off. Paused medications never appear in Discord reminders.
 
+## iPhone home screen
+
+**Quick option — app icon (no code changes needed):**
+Open `https://meds.megangibbs.net` in Safari on your iPhone, tap the Share
+icon, then "Add to Home Screen." It opens full-screen with no browser bar,
+and since login persists for 30 days you'll rarely need to sign in again.
+
+**Real widget — live status on your home screen:**
+Uses the free **Scriptable** app (App Store) to show overdue/due-soon counts
+directly on your home screen, no opening the app required. Setup:
+
+1. Set `WIDGET_API_KEY` in `.env` to a random value (e.g. `openssl rand -hex 16`)
+2. Install Scriptable from the App Store
+3. Open `ios-widget/MedTrackerWidget.js` from this repo, copy its contents
+   into a new script in Scriptable
+4. Edit the `WIDGET_KEY` constant at the top to match your `.env` value
+5. Long-press your home screen → tap + → search "Scriptable" → add the
+   widget → edit it and set "Script" to the one you just created
+
+The widget refreshes on iOS's own schedule and shows a green dot for
+on-track meds and red/amber dots for anything needing attention. Tapping it
+opens the app directly.
+
 ## Discord reminders
 
 Set `DISCORD_WEBHOOK_URL` in `.env` to enable a daily check (default 8:00 AM

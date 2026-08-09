@@ -15,6 +15,7 @@ const DISCORD_WEBHOOK_URL = process.env.DISCORD_WEBHOOK_URL || '';
 const REMINDER_CRON_SCHEDULE = process.env.REMINDER_CRON_SCHEDULE || '0 8 * * *';
 const REMINDER_TIMEZONE = process.env.REMINDER_TIMEZONE || 'America/Detroit';
 const APP_URL = process.env.APP_URL || '';
+const WIDGET_API_KEY = process.env.WIDGET_API_KEY || '';
 
 // ---------- DB setup ----------
 const dataDir = path.join(__dirname, 'data');
@@ -365,6 +366,47 @@ app.post('/api/test-reminder', requireAuth, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ---------- Widget endpoint (separate API key auth, for iOS home screen widget) ----------
+app.get('/api/widget/summary', (req, res) => {
+  if (!WIDGET_API_KEY) {
+    return res.status(400).json({ error: 'WIDGET_API_KEY is not configured in .env' });
+  }
+  const providedKey = req.query.key || req.headers['x-widget-key'];
+  if (providedKey !== WIDGET_API_KEY) {
+    return res.status(401).json({ error: 'Invalid or missing widget key' });
+  }
+
+  const rows = db.prepare(
+    'SELECT * FROM medications WHERE archived = 0 ORDER BY name COLLATE NOCASE'
+  ).all().map(serializeMed);
+
+  const overdue = rows.filter(m => m.status === 'overdue');
+  const dueSoon = rows.filter(m => m.status === 'due_soon');
+  const asNeededOut = rows.filter(m => m.status === 'as_needed_no_refills');
+  const needsAttention = [...overdue, ...dueSoon, ...asNeededOut];
+
+  res.json({
+    generated_at: new Date().toISOString(),
+    counts: {
+      overdue: overdue.length,
+      due_soon: dueSoon.length,
+      as_needed_no_refills: asNeededOut.length,
+      ok: rows.filter(m => m.status === 'ok').length,
+      as_needed: rows.filter(m => m.status === 'as_needed').length,
+      paused: rows.filter(m => m.status === 'paused').length
+    },
+    needs_attention: needsAttention.map(m => ({
+      name: m.name,
+      status: m.status,
+      next_action: m.next_action,
+      next_call_date: m.next_call_date,
+      days_until_call: m.days_until_call,
+      refills_remaining: m.refills_remaining
+    })),
+    app_url: APP_URL || null
+  });
 });
 
 app.listen(PORT, () => {
