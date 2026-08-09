@@ -32,6 +32,16 @@ function colorFor(status) {
   return new Color("#3f8f5f");
 }
 
+function daysLabelFor(med) {
+  if (med.days_until_call === null || med.days_until_call === undefined) {
+    return med.status === "as_needed_no_refills" ? "no refills" : "";
+  }
+  const d = med.days_until_call;
+  if (d < 0) return `${Math.abs(d)}d overdue`;
+  if (d === 0) return "today";
+  return `in ${d}d`;
+}
+
 async function createWidget(data) {
   const w = new ListWidget();
   w.backgroundColor = new Color("#f7f5f0");
@@ -67,6 +77,7 @@ async function createWidget(data) {
     const shown = data.needs_attention.slice(0, 4);
     for (const med of shown) {
       const row = w.addStack();
+      row.layoutHorizontally();
       row.centerAlignContent();
 
       const dot = row.addText("●");
@@ -76,8 +87,15 @@ async function createWidget(data) {
 
       const name = row.addText(med.name);
       name.font = Font.mediumSystemFont(12);
-      name.textColor = new Color("#2b2822");
+      name.textColor = new Color("#ffffff");
       name.lineLimit = 1;
+
+      row.addSpacer();
+
+      const days = row.addText(daysLabelFor(med));
+      days.font = Font.systemFont(10);
+      days.textColor = colorFor(med.status);
+      days.rightAlignText();
 
       w.addSpacer(3);
     }
