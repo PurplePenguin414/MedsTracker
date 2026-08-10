@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Med Refill Tracker</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=3">
 
 <!-- Home screen / PWA support -->
 <link rel="manifest" href="manifest.json">
@@ -40,11 +40,17 @@
         </label>
         <span class="theme-toggle-icon">🌙</span>
       </span>
-      <button id="add-med-btn" class="btn btn-primary">+ Add medication</button>
-      <button id="export-pdf-btn" class="btn btn-ghost">Export PDF</button>
-      <button id="export-history-pdf-btn" class="btn btn-ghost">Export Full History</button>
-      <button id="test-reminder-btn" class="btn btn-ghost">Test Discord reminder</button>
-      <button id="logout-btn" class="btn btn-ghost">Log out</button>
+      <button id="add-med-btn" class="btn btn-primary">+ Add</button>
+      <div class="more-menu-wrap">
+        <button id="more-menu-btn" class="btn btn-ghost" aria-label="More actions">⋯</button>
+        <div id="more-menu-panel" class="more-menu-panel hidden">
+          <button type="button" class="more-menu-item" id="export-pdf-btn">Export PDF</button>
+          <button type="button" class="more-menu-item" id="export-history-pdf-btn">Export Full History</button>
+          <button type="button" class="more-menu-item" id="test-reminder-btn">Test Discord reminder</button>
+          <div class="more-menu-divider"></div>
+          <button type="button" class="more-menu-item" id="logout-btn">Log out</button>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -123,6 +129,6 @@
   </div>
 </div>
 
-<script src="app.js?v=7"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>

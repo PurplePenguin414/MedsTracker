@@ -28,6 +28,25 @@ themeCheckbox.addEventListener('change', () => {
 
 initTheme();
 
+// ---------- More menu (dropdown for secondary actions) ----------
+const moreMenuBtn = document.getElementById('more-menu-btn');
+const moreMenuPanel = document.getElementById('more-menu-panel');
+
+moreMenuBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  moreMenuPanel.classList.toggle('hidden');
+});
+
+document.addEventListener('click', (e) => {
+  if (!moreMenuPanel.classList.contains('hidden') && !moreMenuPanel.contains(e.target) && e.target !== moreMenuBtn) {
+    moreMenuPanel.classList.add('hidden');
+  }
+});
+
+function closeMoreMenu() {
+  moreMenuPanel.classList.add('hidden');
+}
+
 const medListEl = document.getElementById('med-list');
 const summaryStripEl = document.getElementById('summary-strip');
 
@@ -85,6 +104,7 @@ loginForm.addEventListener('submit', async (e) => {
 });
 
 document.getElementById('logout-btn').addEventListener('click', async () => {
+  closeMoreMenu();
   await fetch('/api/logout', { method: 'POST' });
   showLogin();
 });
@@ -611,14 +631,17 @@ document.getElementById('history-close-btn').addEventListener('click', () => {
 document.getElementById('add-med-btn').addEventListener('click', startAdd);
 
 document.getElementById('export-pdf-btn').addEventListener('click', () => {
+  closeMoreMenu();
   window.location.href = '/api/export/pdf';
 });
 
 document.getElementById('export-history-pdf-btn').addEventListener('click', () => {
+  closeMoreMenu();
   window.location.href = '/api/export/history/pdf';
 });
 
 document.getElementById('test-reminder-btn').addEventListener('click', async () => {
+  closeMoreMenu();
   const btn = document.getElementById('test-reminder-btn');
   btn.disabled = true;
   btn.textContent = 'Sending...';
