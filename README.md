@@ -59,6 +59,35 @@ The widget refreshes on iOS's own schedule and shows a green dot for
 on-track meds and red/amber dots for anything needing attention. Tapping it
 opens the app directly.
 
+## Symptom / side-effect log
+
+Each medication's History view has a **Symptoms** tab. Log the date,
+severity (Mild/Moderate/Severe), and a description whenever you notice
+something — especially useful in the first few weeks of a new medication to
+spot patterns before your next doctor visit. Entries are listed newest
+first and can be deleted individually.
+
+## Titration tracking
+
+The **Titration** tab in History logs dose changes over time — date, new
+dosage, and optional notes (e.g. "doctor increased dose after 2-week
+check-in"). Logging a dose change here also updates the medication's
+current dosage shown on its card, so you always see the latest.
+
+## Cost tracking
+
+Set an optional **cost per fill** when adding or editing a medication. Each
+time you mark it picked up, that cost is automatically logged, and the
+medication card shows a running **total spent to date**. The PDF export
+includes both figures per medication.
+
+## Printable medication list (PDF)
+
+The **Export PDF** button in the top bar generates a clean, doctor-visit-ready
+PDF of all your current medications — name, dosage, schedule, refills
+remaining, cost, and notes — with paused medications listed separately at
+the bottom so it's clear what you're not currently taking.
+
 ## Discord reminders
 
 Set `DISCORD_WEBHOOK_URL` in `.env` to enable a daily check (default 8:00 AM

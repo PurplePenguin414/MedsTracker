@@ -10,6 +10,9 @@ const historyModal = document.getElementById('history-modal');
 const historyList = document.getElementById('history-list');
 const historyTitle = document.getElementById('history-title');
 
+let currentHistoryMedId = null;
+let currentHistoryTab = 'pickups';
+
 const INTERVAL_PRESETS = [7, 14, 21, 30, 60, 90, 180];
 
 let currentMeds = [];
@@ -119,16 +122,13 @@ function escapeHtml(str) {
 }
 
 function todayStr() {
-  // Return today's date as experienced in REMINDER_TIMEZONE, not UTC —
-  // otherwise the app can think it's tomorrow in the evening (UTC is
-  // ahead of US timezones).
-  const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone: REMINDER_TIMEZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  });
-  return fmt.format(new Date());
+  // Use the browser's local date components, not toISOString() (which is
+  // UTC and can roll over to "tomorrow" in the evening in US timezones).
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 // ---------- Render list ----------
@@ -210,6 +210,12 @@ function renderViewCard(med) {
           <div class="k">Last picked up</div>
           <div class="v">${fmtDate(med.last_picked_up_date)}</div>
         </div>
+        ${med.cost_per_fill != null ? `
+        <div class="med-detail">
+          <div class="k">Cost per fill</div>
+          <div class="v">$${med.cost_per_fill.toFixed(2)}${med.total_spent ? ` <span class="v-muted">· $${med.total_spent.toFixed(2)} total</span>` : ''}</div>
+        </div>
+        ` : ''}
       </div>
 
       ${med.notes ? `<div class="med-notes">${escapeHtml(med.notes)}</div>` : ''}
@@ -296,11 +302,18 @@ function renderEditCard(med) {
           <input type="number" class="ed-refills-remaining" min="0" value="${refillsRemaining}">
         </label>
 
+        <label class="field">
+          Cost per fill <span class="optional">(optional)</span>
+          <input type="number" class="ed-cost-per-fill" min="0" step="0.01" value="${isNew ? '' : (med.cost_per_fill != null ? med.cost_per_fill : '')}" placeholder="e.g. 15.00">
+        </label>
+
         <label class="field field-wide">
           Notes <span class="optional">(optional)</span>
           <textarea class="ed-notes" rows="2" placeholder="Pharmacy phone number, doctor, special instructions...">${escapeHtml(notes)}</textarea>
         </label>
       </div>
+
+      <div class="form-error"></div>
 
       <div class="med-actions">
         <button class="btn btn-primary btn-small" onclick="saveEdit(${isNew ? "'new'" : med.id})">Save</button>
@@ -372,11 +385,13 @@ async function saveEdit(id) {
     last_picked_up_date: card.querySelector('.ed-last-picked-up').value,
     refills_remaining: parseInt(card.querySelector('.ed-refills-remaining').value, 10) || 0,
     notes: card.querySelector('.ed-notes').value.trim(),
-    as_needed: isAsNeeded
+    as_needed: isAsNeeded,
+    cost_per_fill: card.querySelector('.ed-cost-per-fill').value || null
   };
 
   if (!payload.name || !payload.last_picked_up_date || (!isAsNeeded && !intervalDays)) {
-    alert('Please fill in medication name, last picked up date, and refill interval (unless marked as needed).');
+    const errorEl = card.querySelector('.form-error');
+    errorEl.textContent = 'Please fill in medication name, last picked up date, and refill interval (unless marked as needed).';
     return;
   }
 
@@ -427,11 +442,31 @@ async function markPickedUp(id) {
   loadMeds();
 }
 
-// ---------- History (view-only modal) ----------
+// ---------- History (tabbed: pickups / symptoms / titration) ----------
 async function openHistory(id) {
+  currentHistoryMedId = id;
   const med = currentMeds.find(m => m.id === id);
-  historyTitle.textContent = `Pickup history — ${med ? med.name : ''}`;
-  const res = await fetch(`/api/medications/${id}/history`);
+  historyTitle.textContent = `History — ${med ? med.name : ''}`;
+  switchHistoryTab('pickups');
+  historyModal.classList.remove('hidden');
+}
+
+function switchHistoryTab(tab) {
+  currentHistoryTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.tab === tab);
+  });
+  document.querySelectorAll('.tab-panel').forEach(panel => {
+    panel.classList.toggle('hidden', panel.id !== `tab-${tab}`);
+  });
+
+  if (tab === 'pickups') loadPickupHistory();
+  if (tab === 'symptoms') { document.getElementById('symptom-form-error').textContent = ''; loadSymptoms(); }
+  if (tab === 'titration') { document.getElementById('dose-change-form-error').textContent = ''; loadDoseChanges(); }
+}
+
+async function loadPickupHistory() {
+  const res = await fetch(`/api/medications/${currentHistoryMedId}/history`);
   const rows = await res.json();
   if (rows.length === 0) {
     historyList.innerHTML = `<div class="empty-state">No pickups logged yet.</div>`;
@@ -439,11 +474,109 @@ async function openHistory(id) {
     historyList.innerHTML = rows.map(r => `
       <div class="history-row">
         <span>${fmtDate(r.picked_up_date)}</span>
-        <span class="muted">${r.refills_remaining_after} refill${r.refills_remaining_after === 1 ? '' : 's'} left after</span>
+        <span class="muted">
+          ${r.refills_remaining_after} refill${r.refills_remaining_after === 1 ? '' : 's'} left after
+          ${r.cost_paid != null ? ` · $${r.cost_paid.toFixed(2)}` : ''}
+        </span>
       </div>
     `).join('');
   }
-  historyModal.classList.remove('hidden');
+}
+
+async function loadSymptoms() {
+  const listEl = document.getElementById('symptoms-list');
+  document.getElementById('symptom-date').value = todayStr();
+  const res = await fetch(`/api/medications/${currentHistoryMedId}/symptoms`);
+  const rows = await res.json();
+  if (rows.length === 0) {
+    listEl.innerHTML = `<div class="empty-state">No symptoms logged yet.</div>`;
+  } else {
+    listEl.innerHTML = rows.map(r => `
+      <div class="history-row history-row-stacked">
+        <div class="history-row-top">
+          <span><strong>${fmtDate(r.log_date)}</strong> — ${escapeHtml(r.severity)}</span>
+          <button class="btn-icon-delete" onclick="deleteSymptomLog(${r.id})" title="Delete">&times;</button>
+        </div>
+        ${r.description ? `<div class="muted">${escapeHtml(r.description)}</div>` : ''}
+      </div>
+    `).join('');
+  }
+}
+
+async function addSymptomLog() {
+  const log_date = document.getElementById('symptom-date').value;
+  const severity = document.getElementById('symptom-severity').value;
+  const description = document.getElementById('symptom-description').value.trim();
+  const errorEl = document.getElementById('symptom-form-error');
+
+  if (!log_date) {
+    errorEl.textContent = 'Please select a date.';
+    return;
+  }
+  errorEl.textContent = '';
+
+  await fetch(`/api/medications/${currentHistoryMedId}/symptoms`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ log_date, severity, description })
+  });
+
+  document.getElementById('symptom-description').value = '';
+  loadSymptoms();
+}
+
+async function deleteSymptomLog(id) {
+  await fetch(`/api/symptoms/${id}`, { method: 'DELETE' });
+  loadSymptoms();
+}
+
+async function loadDoseChanges() {
+  const listEl = document.getElementById('titration-list');
+  document.getElementById('dose-change-date').value = todayStr();
+  const res = await fetch(`/api/medications/${currentHistoryMedId}/dose-changes`);
+  const rows = await res.json();
+  if (rows.length === 0) {
+    listEl.innerHTML = `<div class="empty-state">No dose changes logged yet.</div>`;
+  } else {
+    listEl.innerHTML = rows.map(r => `
+      <div class="history-row history-row-stacked">
+        <div class="history-row-top">
+          <span><strong>${fmtDate(r.change_date)}</strong> — ${escapeHtml(r.new_dosage)}</span>
+          <button class="btn-icon-delete" onclick="deleteDoseChange(${r.id})" title="Delete">&times;</button>
+        </div>
+        ${r.notes ? `<div class="muted">${escapeHtml(r.notes)}</div>` : ''}
+      </div>
+    `).join('');
+  }
+}
+
+async function addDoseChange() {
+  const change_date = document.getElementById('dose-change-date').value;
+  const new_dosage = document.getElementById('dose-change-new-dosage').value.trim();
+  const notes = document.getElementById('dose-change-notes').value.trim();
+  const errorEl = document.getElementById('dose-change-form-error');
+
+  if (!change_date || !new_dosage) {
+    errorEl.textContent = 'Please fill in the date and new dosage.';
+    return;
+  }
+  errorEl.textContent = '';
+
+  await fetch(`/api/medications/${currentHistoryMedId}/dose-changes`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ change_date, new_dosage, notes })
+  });
+
+  document.getElementById('dose-change-new-dosage').value = '';
+  document.getElementById('dose-change-notes').value = '';
+  loadDoseChanges();
+  loadMeds(); // dosage on the med card may have changed
+}
+
+async function deleteDoseChange(id) {
+  await fetch(`/api/dose-changes/${id}`, { method: 'DELETE' });
+  loadDoseChanges();
 }
 
 document.getElementById('history-close-btn').addEventListener('click', () => {
@@ -451,6 +584,10 @@ document.getElementById('history-close-btn').addEventListener('click', () => {
 });
 
 document.getElementById('add-med-btn').addEventListener('click', startAdd);
+
+document.getElementById('export-pdf-btn').addEventListener('click', () => {
+  window.location.href = '/api/export/pdf';
+});
 
 document.getElementById('test-reminder-btn').addEventListener('click', async () => {
   const btn = document.getElementById('test-reminder-btn');
@@ -486,5 +623,10 @@ window.openHistory = openHistory;
 window.toggleCustomInterval = toggleCustomInterval;
 window.toggleAsNeeded = toggleAsNeeded;
 window.togglePaused = togglePaused;
+window.switchHistoryTab = switchHistoryTab;
+window.addSymptomLog = addSymptomLog;
+window.deleteSymptomLog = deleteSymptomLog;
+window.addDoseChange = addDoseChange;
+window.deleteDoseChange = deleteDoseChange;
 
 checkSession();
