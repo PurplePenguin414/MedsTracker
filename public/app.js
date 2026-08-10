@@ -3,6 +3,31 @@ const appEl = document.getElementById('app');
 const loginForm = document.getElementById('login-form');
 const loginError = document.getElementById('login-error');
 
+// ---------- Theme (light/dark) ----------
+const THEME_KEY = 'med-tracker-theme';
+const themeCheckbox = document.getElementById('theme-toggle-checkbox');
+
+function applyTheme(theme) {
+  document.body.setAttribute('data-theme', theme);
+  themeCheckbox.checked = theme === 'dark';
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) metaTheme.setAttribute('content', theme === 'dark' ? '#121212' : '#2f6f9f');
+}
+
+function initTheme() {
+  const saved = localStorage.getItem(THEME_KEY);
+  const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  applyTheme(saved || (prefersDark ? 'dark' : 'light'));
+}
+
+themeCheckbox.addEventListener('change', () => {
+  const theme = themeCheckbox.checked ? 'dark' : 'light';
+  localStorage.setItem(THEME_KEY, theme);
+  applyTheme(theme);
+});
+
+initTheme();
+
 const medListEl = document.getElementById('med-list');
 const summaryStripEl = document.getElementById('summary-strip');
 
