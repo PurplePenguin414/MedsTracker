@@ -542,6 +542,78 @@ app.get('/api/export/pdf', requireAuth, (req, res) => {
   doc.end();
 });
 
+// ---------- Full history export: every medication's pickups, symptoms, and dose changes ----------
+app.get('/api/export/history/pdf', requireAuth, (req, res) => {
+  const meds = db.prepare(
+    'SELECT * FROM medications WHERE archived = 0 ORDER BY name COLLATE NOCASE'
+  ).all().map(serializeMed);
+
+  const doc = new PDFDocument({ margin: 50, size: 'LETTER' });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="medication-full-history-${todayStr()}.pdf"`);
+  doc.pipe(res);
+
+  doc.fontSize(18).fillColor('#2b2822').text('Medication Full History');
+  doc.fontSize(10).fillColor('#8a8478').text(`Generated ${todayStr()}`);
+  doc.moveDown(0.5);
+  doc.moveTo(50, doc.y).lineTo(562, doc.y).strokeColor('#e4e0d6').lineWidth(1).stroke();
+  doc.moveDown(1);
+
+  if (meds.length === 0) {
+    doc.fontSize(11).fillColor('#8a8478').text('No medications currently tracked.');
+  }
+
+  meds.forEach((m, idx) => {
+    if (idx > 0) doc.moveDown(0.8);
+
+    doc.fontSize(15).fillColor('#2b2822').text(m.name + (m.dosage ? `  —  ${m.dosage}` : ''));
+    const statusLine = m.as_needed ? 'As needed' : m.paused ? 'Paused' : `Refill every ${m.refill_interval_days} days`;
+    doc.fontSize(9.5).fillColor('#8a8478').text(statusLine);
+    doc.moveDown(0.5);
+
+    const pickups = db.prepare('SELECT * FROM pickup_history WHERE medication_id = ? ORDER BY picked_up_date').all(m.id);
+    const symptoms = db.prepare('SELECT * FROM symptom_logs WHERE medication_id = ? ORDER BY log_date').all(m.id);
+    const doseChanges = db.prepare('SELECT * FROM dose_changes WHERE medication_id = ? ORDER BY change_date').all(m.id);
+
+    doc.fontSize(11).fillColor('#2b2822').text('Pickup history');
+    doc.fontSize(9.5).fillColor('#8a8478');
+    if (pickups.length === 0) {
+      doc.text('  No pickups logged.');
+    } else {
+      pickups.forEach(p => {
+        doc.text(`  ${p.picked_up_date} — ${p.refills_remaining_after} refill${p.refills_remaining_after === 1 ? '' : 's'} left${p.cost_paid != null ? ` · $${p.cost_paid.toFixed(2)}` : ''}`);
+      });
+    }
+    doc.moveDown(0.4);
+
+    doc.fontSize(11).fillColor('#2b2822').text('Symptoms / side effects');
+    doc.fontSize(9.5).fillColor('#8a8478');
+    if (symptoms.length === 0) {
+      doc.text('  None logged.');
+    } else {
+      symptoms.forEach(s => {
+        doc.text(`  ${s.log_date} — ${s.severity}${s.description ? `: ${s.description}` : ''}`);
+      });
+    }
+    doc.moveDown(0.4);
+
+    doc.fontSize(11).fillColor('#2b2822').text('Titration / dose changes');
+    doc.fontSize(9.5).fillColor('#8a8478');
+    if (doseChanges.length === 0) {
+      doc.text('  None logged.');
+    } else {
+      doseChanges.forEach(d => {
+        doc.text(`  ${d.change_date} — ${d.new_dosage}${d.notes ? `: ${d.notes}` : ''}`);
+      });
+    }
+
+    doc.moveDown(0.6);
+    doc.moveTo(50, doc.y).lineTo(562, doc.y).strokeColor('#e4e0d6').lineWidth(1).stroke();
+  });
+
+  doc.end();
+});
+
 // ---------- Widget endpoint (separate API key auth, for iOS home screen widget) ----------
 app.get('/api/widget/summary', (req, res) => {
   if (!WIDGET_API_KEY) {

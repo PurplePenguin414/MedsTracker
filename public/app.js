@@ -589,6 +589,10 @@ document.getElementById('export-pdf-btn').addEventListener('click', () => {
   window.location.href = '/api/export/pdf';
 });
 
+document.getElementById('export-history-pdf-btn').addEventListener('click', () => {
+  window.location.href = '/api/export/history/pdf';
+});
+
 document.getElementById('test-reminder-btn').addEventListener('click', async () => {
   const btn = document.getElementById('test-reminder-btn');
   btn.disabled = true;
