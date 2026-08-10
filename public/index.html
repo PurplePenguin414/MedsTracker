@@ -2,232 +2,127 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Budget Dashboard</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="shared.css">
-<script src="vendor/chart.umd.js"></script>
-<style>
-  :root {
-    --bg: #f7f6f2;
-    --surface: #ffffff;
-    --surface2: #efede7;
-    --border: rgba(0,0,0,0.09);
-    --text: #1a1917;
-    --muted: #7a7870;
-    --red: #c94235;
-    --red-bg: #fdf0ee;
-    --amber: #b87318;
-    --amber-bg: #fdf4e3;
-    --green: #2a8a5f;
-    --green-bg: #edf7f1;
-    --blue: #2761a0;
-    --blue-bg: #edf2fa;
-    --pill-r: 6px;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); padding: 36px 24px 80px; max-width: 920px; margin: 0 auto; }
-  h1, h2, h3 { font-weight: 500; }
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Med Refill Tracker</title>
+<link rel="stylesheet" href="style.css">
 
-  /* ---------- Login ---------- */
-  #login-screen { max-width: 340px; margin: 120px auto; }
-  #login-screen h1 { font-size: 20px; margin-bottom: 18px; text-align: center; }
-  #login-screen input { width: 100%; padding: 11px 13px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; margin-bottom: 10px; background: var(--surface); }
-  #login-screen button { width: 100%; padding: 11px; border: none; border-radius: 8px; background: var(--blue); color: #fff; font-size: 14px; font-family: inherit; cursor: pointer; }
-  #login-error { color: var(--red); font-size: 12.5px; margin-top: 8px; min-height: 16px; }
-
-  /* ---------- Header ---------- */
-  .header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 28px; border-bottom: 1px solid var(--border); padding-bottom: 18px; }
-  .header h1 { font-size: 22px; letter-spacing: -0.4px; }
-  .header p { font-size: 12px; color: var(--muted); margin-top: 4px; font-family: 'DM Mono', monospace; }
-  #logout-btn { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); background: none; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
-  .nav-link { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text); text-decoration: none; border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; margin-right: 8px; display: inline-block; background: var(--surface); }
-  .nav-link:hover { background: var(--surface2); }
-
-  /* ---------- Month nav ---------- */
-  .month-nav { display: flex; align-items: center; gap: 12px; margin-bottom: 26px; }
-  .month-nav button { border: 1px solid var(--border); background: var(--surface); border-radius: 7px; width: 32px; height: 32px; font-size: 15px; cursor: pointer; color: var(--text); }
-  .month-nav .label { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; min-width: 150px; text-align: center; }
-
-  .section-label { font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); margin-bottom: 11px; margin-top: 32px; }
-  .section-label:first-of-type { margin-top: 0; }
-
-  /* ---------- Metrics ---------- */
-  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-  .metric { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 15px 16px; }
-  .metric-label { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; letter-spacing: 0.03em; margin-bottom: 7px; }
-  .metric-value { font-size: 22px; font-weight: 500; letter-spacing: -0.5px; }
-  .v-green { color: var(--green); } .v-red { color: var(--red); } .v-amber { color: var(--amber); }
-
-  /* ---------- Cards / bars ---------- */
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 22px; }
-  .bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-  .bar-row:last-child { margin-bottom: 0; }
-  .bar-label { font-size: 13px; width: 150px; flex-shrink: 0; }
-  .bar-track { flex: 1; background: var(--surface2); border-radius: 3px; height: 7px; overflow: hidden; }
-  .bar-fill { height: 7px; border-radius: 3px; }
-  .bar-amt { font-size: 12.5px; font-family: 'DM Mono', monospace; color: var(--text); min-width: 70px; text-align: right; }
-  .empty-msg { color: var(--muted); font-size: 13px; padding: 6px 2px; }
-
-  /* ---------- Entry form ---------- */
-  .entry-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  .entry-form select, .entry-form input { padding: 9px 11px; border: 1px solid var(--border); border-radius: 7px; font-size: 13px; font-family: inherit; background: var(--surface); }
-  .entry-form select { flex: 1.4; min-width: 150px; }
-  .entry-form input[type=number] { width: 100px; }
-  .entry-form input[type=text] { flex: 1; min-width: 120px; }
-  .entry-form button { padding: 9px 16px; border: none; border-radius: 7px; background: var(--blue); color: #fff; font-size: 13px; font-family: inherit; cursor: pointer; white-space: nowrap; }
-  .toggle-row { display: flex; gap: 6px; margin-bottom: 10px; }
-  .toggle-btn { padding: 6px 12px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface); font-size: 12.5px; font-family: inherit; cursor: pointer; color: var(--muted); }
-  .toggle-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
-  .add-cat-link { font-size: 11.5px; color: var(--muted); font-family: 'DM Mono', monospace; cursor: pointer; margin-top: 8px; display: inline-block; text-decoration: underline; }
-
-  /* ---------- Entries list ---------- */
-  .entry-list { margin-top: 14px; }
-  .erow { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
-  .erow:last-child { border-bottom: none; }
-  .erow .ecat { color: var(--text); }
-  .erow .enote { color: var(--muted); font-size: 11.5px; margin-left: 6px; }
-  .erow .eamt { font-family: 'DM Mono', monospace; }
-  .erow .edel { color: var(--muted); cursor: pointer; font-size: 12px; margin-left: 12px; background: none; border: none; }
-  .erow .edel:hover { color: var(--red); }
-
-  /* ---------- Trends ---------- */
-  .chart-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 22px; }
-  .cat-select { margin-bottom: 12px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px; font-size: 12.5px; font-family: inherit; background: var(--surface); }
-
-  /* ---------- 50/30/20 rule card ---------- */
-  .rule-row { margin-bottom: 16px; }
-  .rule-row:last-child { margin-bottom: 0; }
-  .rule-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
-  .rule-name { font-size: 13.5px; font-weight: 500; }
-  .rule-target { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; }
-  .rule-track { background: var(--surface2); border-radius: 4px; height: 10px; overflow: hidden; position: relative; }
-  .rule-fill { height: 10px; border-radius: 4px; }
-  .rule-marker { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--text); opacity: 0.35; }
-  .rule-meta { display: flex; justify-content: space-between; margin-top: 5px; font-size: 11.5px; font-family: 'DM Mono', monospace; color: var(--muted); }
-
-  .bucket-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
-  .bucket-row:last-child { border-bottom: none; }
-  .bucket-row select { padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; font-family: inherit; background: var(--surface); }
-
-  /* ---------- Targets ---------- */
-  .target-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); }
-  .target-row:last-child { border-bottom: none; }
-  .target-name { width: 130px; flex-shrink: 0; font-size: 13px; }
-  .target-track { flex: 1; background: var(--surface2); border-radius: 3px; height: 7px; overflow: hidden; }
-  .target-fill { height: 7px; border-radius: 3px; }
-  .target-actual { font-size: 12px; font-family: 'DM Mono', monospace; min-width: 60px; text-align: right; }
-  .target-input-wrap { display: flex; align-items: center; gap: 3px; }
-  .target-input-wrap span { color: var(--muted); font-size: 11.5px; }
-  .target-input-wrap input { width: 70px; padding: 5px 7px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; font-family: 'DM Mono', monospace; background: var(--surface); }
-
-  /* ---------- Month over month table ---------- */
-  table.mom { width: 100%; border-collapse: collapse; font-size: 13px; }
-  table.mom th { text-align: left; font-family: 'DM Mono', monospace; font-size: 10.5px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); padding-bottom: 8px; border-bottom: 1px solid var(--border); }
-  table.mom td { padding: 8px 0; border-bottom: 1px solid var(--border); }
-  table.mom tr:last-child td { border-bottom: none; }
-  table.mom td.num { font-family: 'DM Mono', monospace; text-align: right; }
-
-  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  @media (max-width: 620px) {
-    .metrics { grid-template-columns: repeat(2,1fr); }
-    .two-col { grid-template-columns: 1fr; }
-    .bar-label { width: 100px; font-size: 12px; }
-  }
-</style>
+<!-- Home screen / PWA support -->
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Meds">
+<meta name="theme-color" content="#2f6f9f">
 </head>
 <body>
 
-<div id="login-screen">
-  <h1>Budget Dashboard</h1>
-  <input type="password" id="login-password" placeholder="Password" />
-  <button id="login-btn">Log in</button>
-  <div id="login-error"></div>
+<div id="login-screen" class="login-screen">
+  <div class="login-card">
+    <h1>Med Refill Tracker</h1>
+    <form id="login-form">
+      <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" required>
+      <button type="submit">Log in</button>
+      <div id="login-error" class="login-error"></div>
+    </form>
+  </div>
 </div>
 
-<div id="app" style="display:none;">
+<div id="app" class="app hidden">
 
-<div id="topnav-mount"></div>
-
-  <div class="header">
-    <div>
-      <h1>Megan's Budget Dashboard</h1>
-      <p>Monthly income &amp; spending — tracked over time</p>
+  <header class="topbar">
+    <h1>Med Refill Tracker</h1>
+    <div class="topbar-actions">
+      <span class="theme-toggle-wrap">
+        <span class="theme-toggle-icon">☀️</span>
+        <label class="theme-toggle">
+          <input type="checkbox" id="theme-toggle-checkbox">
+          <span class="theme-toggle-slider"></span>
+        </label>
+        <span class="theme-toggle-icon">🌙</span>
+      </span>
+      <button id="add-med-btn" class="btn btn-primary">+ Add medication</button>
+      <button id="export-pdf-btn" class="btn btn-ghost">Export PDF</button>
+      <button id="export-history-pdf-btn" class="btn btn-ghost">Export Full History</button>
+      <button id="test-reminder-btn" class="btn btn-ghost">Test Discord reminder</button>
+      <button id="logout-btn" class="btn btn-ghost">Log out</button>
     </div>
-    <div>
-      <button id="export-btn" class="nav-link" style="cursor:pointer;">Export</button>
-      <button id="logout-btn">Log out</button>
-    </div>
-  </div>
+  </header>
 
-  <div class="month-nav">
-    <button id="prev-month">&larr;</button>
-    <div class="label" id="month-label">—</div>
-    <button id="next-month">&rarr;</button>
-  </div>
+  <div class="summary-strip" id="summary-strip"></div>
 
-  <div class="section-label">Monthly snapshot</div>
-  <div class="metrics">
-    <div class="metric"><div class="metric-label">income</div><div class="metric-value v-green" id="m-income">$0</div></div>
-    <div class="metric"><div class="metric-label">expenses</div><div class="metric-value" id="m-expense">$0</div></div>
-    <div class="metric"><div class="metric-label">net</div><div class="metric-value" id="m-net">$0</div></div>
-    <div class="metric"><div class="metric-label">savings rate</div><div class="metric-value" id="m-rate">0%</div></div>
-  </div>
-
-  <div class="section-label">50 / 30 / 20 breakdown</div>
-  <div class="card" id="rule-card"></div>
-  <span class="add-cat-link" id="manage-buckets-link">manage which categories count as needs / wants / savings</span>
-  <div class="card" id="bucket-manager" style="display:none; margin-top:10px;"></div>
-
-  <div class="section-label">Where this month's money went</div>
-  <div class="two-col">
-    <div class="card" id="expense-bars"><div class="empty-msg">No expenses logged yet for this month.</div></div>
-    <div class="card">
-      <canvas id="expense-pie" height="220"></canvas>
-    </div>
-  </div>
-
-  <div class="section-label">Budget targets vs. actual</div>
-  <div class="card" id="targets-card"></div>
-
-  <div class="section-label">This month vs. last month</div>
-  <div class="card" id="mom-table"></div>
-
-  <div class="section-label">Add an entry</div>
-  <div class="card">
-    <div class="toggle-row">
-      <button class="toggle-btn active" data-kind="expense" id="toggle-expense">Expense</button>
-      <button class="toggle-btn" data-kind="income" id="toggle-income">Income</button>
-    </div>
-    <div class="entry-form">
-      <select id="entry-category"></select>
-      <input type="number" id="entry-amount" placeholder="Amount" step="0.01" min="0" />
-      <input type="text" id="entry-note" placeholder="Note (optional)" />
-      <button id="entry-submit">Add</button>
-    </div>
-    <span class="add-cat-link" id="add-cat-link">+ add a new category</span>
-  </div>
-
-  <div class="section-label">This month's entries</div>
-  <div class="card">
-    <div class="entry-list" id="entry-list"><div class="empty-msg">Nothing logged yet.</div></div>
-  </div>
-
-  <div class="section-label">Income vs. expenses over time</div>
-  <div class="chart-wrap">
-    <canvas id="trend-chart" height="90"></canvas>
-  </div>
-
-  <div class="section-label">Category trend</div>
-  <div class="chart-wrap">
-    <select class="cat-select" id="cat-trend-select"></select>
-    <canvas id="category-chart" height="80"></canvas>
-  </div>
+  <main id="med-list" class="med-list"></main>
 
 </div>
 
-<script src="nav.js"></script>
-<script src="app.js"></script>
+<!-- History Modal: tabbed view with inline "add entry" forms -->
+<div id="history-modal" class="modal-overlay hidden">
+  <div class="modal modal-wide">
+    <h2 id="history-title">History</h2>
+
+    <div class="tab-row">
+      <button type="button" class="tab-btn active" data-tab="pickups" onclick="switchHistoryTab('pickups')">Pickups</button>
+      <button type="button" class="tab-btn" data-tab="symptoms" onclick="switchHistoryTab('symptoms')">Symptoms</button>
+      <button type="button" class="tab-btn" data-tab="titration" onclick="switchHistoryTab('titration')">Titration</button>
+    </div>
+
+    <div id="tab-pickups" class="tab-panel">
+      <div id="history-list" class="history-list"></div>
+    </div>
+
+    <div id="tab-symptoms" class="tab-panel hidden">
+      <div id="symptoms-list" class="history-list"></div>
+      <div class="inline-add-form">
+        <div class="field-row">
+          <label class="field">
+            Date
+            <input type="date" id="symptom-date">
+          </label>
+          <label class="field">
+            Severity
+            <select id="symptom-severity">
+              <option value="Mild">Mild</option>
+              <option value="Moderate">Moderate</option>
+              <option value="Severe">Severe</option>
+            </select>
+          </label>
+        </div>
+        <label class="field field-wide">
+          Description <span class="optional">(optional)</span>
+          <textarea id="symptom-description" rows="2" placeholder="What happened, when it started, anything notable..."></textarea>
+        </label>
+        <div class="form-error" id="symptom-form-error"></div>
+        <button type="button" class="btn btn-primary btn-small" onclick="addSymptomLog()">Log symptom</button>
+      </div>
+    </div>
+
+    <div id="tab-titration" class="tab-panel hidden">
+      <div id="titration-list" class="history-list"></div>
+      <div class="inline-add-form">
+        <div class="field-row">
+          <label class="field">
+            Date
+            <input type="date" id="dose-change-date">
+          </label>
+          <label class="field">
+            New dosage
+            <input type="text" id="dose-change-new-dosage" placeholder="e.g. 20mg">
+          </label>
+        </div>
+        <label class="field field-wide">
+          Notes <span class="optional">(optional)</span>
+          <textarea id="dose-change-notes" rows="2" placeholder="Reason for the change, how you're tolerating it..."></textarea>
+        </label>
+        <div class="form-error" id="dose-change-form-error"></div>
+        <button type="button" class="btn btn-primary btn-small" onclick="addDoseChange()">Log dose change</button>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" id="history-close-btn" class="btn btn-ghost">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js?v=7"></script>
 </body>
 </html>
