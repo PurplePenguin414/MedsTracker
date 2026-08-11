@@ -57,6 +57,8 @@ ensureColumn('medications', 'as_needed', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('medications', 'paused', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('medications', 'cost_per_fill', 'REAL');
 ensureColumn('pickup_history', 'cost_paid', 'REAL');
+ensureColumn('medications', 'called_in_date', 'TEXT');
+ensureColumn('pickup_history', 'called_in_date', 'TEXT');
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS symptom_logs (
@@ -272,12 +274,25 @@ app.post('/api/medications/:id/toggle-paused', requireAuth, (req, res) => {
   res.json(serializeMed(updated));
 });
 
+// Log that you called it in — first step of the call -> pickup cycle
+app.post('/api/medications/:id/call-in', requireAuth, (req, res) => {
+  const { id } = req.params;
+  const med = db.prepare('SELECT * FROM medications WHERE id = ?').get(id);
+  if (!med) return res.status(404).json({ error: 'Not found' });
+
+  const callInDate = req.body.called_in_date || todayStr();
+  db.prepare('UPDATE medications SET called_in_date = ? WHERE id = ?').run(callInDate, id);
+  const updated = db.prepare('SELECT * FROM medications WHERE id = ?').get(id);
+  res.json(serializeMed(updated));
+});
+
 app.delete('/api/medications/:id', requireAuth, (req, res) => {
   db.prepare('UPDATE medications SET archived = 1 WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
 
-// Mark as picked up: sets last_picked_up_date, decrements refills_remaining, logs history
+// Mark as picked up: sets last_picked_up_date, decrements refills_remaining, logs history,
+// captures the pending call-in date (if any) and resets it for the next cycle
 app.post('/api/medications/:id/pickup', requireAuth, (req, res) => {
   const { id } = req.params;
   const med = db.prepare('SELECT * FROM medications WHERE id = ?').get(id);
@@ -288,12 +303,13 @@ app.post('/api/medications/:id/pickup', requireAuth, (req, res) => {
   const costPaid = req.body.cost_paid !== undefined && req.body.cost_paid !== null && req.body.cost_paid !== ''
     ? parseFloat(req.body.cost_paid)
     : med.cost_per_fill;
+  const callInDateForThisCycle = med.called_in_date || null;
 
-  db.prepare('UPDATE medications SET last_picked_up_date = ?, refills_remaining = ? WHERE id = ?')
+  db.prepare('UPDATE medications SET last_picked_up_date = ?, refills_remaining = ?, called_in_date = NULL WHERE id = ?')
     .run(pickupDate, newRefillsRemaining, id);
 
-  db.prepare('INSERT INTO pickup_history (medication_id, picked_up_date, refills_remaining_after, cost_paid) VALUES (?, ?, ?, ?)')
-    .run(id, pickupDate, newRefillsRemaining, costPaid);
+  db.prepare('INSERT INTO pickup_history (medication_id, picked_up_date, refills_remaining_after, cost_paid, called_in_date) VALUES (?, ?, ?, ?, ?)')
+    .run(id, pickupDate, newRefillsRemaining, costPaid, callInDateForThisCycle);
 
   const updated = db.prepare('SELECT * FROM medications WHERE id = ?').get(id);
   res.json(serializeMed(updated));

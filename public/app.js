@@ -206,6 +206,13 @@ function renderMedList() {
   medListEl.innerHTML = pieces.join('');
 }
 
+function renderPrimaryActionButton(med) {
+  if (med.called_in_date) {
+    return `<button class="btn btn-primary btn-small" onclick="markPickedUp(${med.id})">Log picked up</button>`;
+  }
+  return `<button class="btn btn-primary btn-small" onclick="logCalledIn(${med.id})">Log called in</button>`;
+}
+
 function renderViewCard(med) {
   const refillsClass = med.refills_remaining === 0 ? 'red' : (med.refills_remaining <= 1 ? 'amber' : 'green');
   const isConfirmingDelete = confirmingDeleteId === med.id;
@@ -255,6 +262,12 @@ function renderViewCard(med) {
           <div class="k">Last picked up</div>
           <div class="v">${fmtDate(med.last_picked_up_date)}</div>
         </div>
+        ${med.called_in_date ? `
+        <div class="med-detail">
+          <div class="k">Called in</div>
+          <div class="v strong">${fmtDate(med.called_in_date)}</div>
+        </div>
+        ` : ''}
         ${med.cost_per_fill != null ? `
         <div class="med-detail">
           <div class="k">Cost per fill</div>
@@ -266,7 +279,7 @@ function renderViewCard(med) {
       ${med.notes ? `<div class="med-notes">${escapeHtml(med.notes)}</div>` : ''}
 
       <div class="med-actions">
-        ${isPaused ? '' : `<button class="btn btn-primary btn-small" onclick="markPickedUp(${med.id})">Mark picked up</button>`}
+        ${isPaused ? '' : renderPrimaryActionButton(med)}
         <button class="btn btn-ghost btn-small" onclick="startEdit(${med.id})">Edit</button>
         <button class="btn btn-ghost btn-small" onclick="togglePaused(${med.id})">${isPaused ? 'Resume' : 'Pause'}</button>
         <button class="btn btn-ghost btn-small" onclick="openHistory(${med.id})">History</button>
@@ -478,6 +491,16 @@ async function confirmDelete(id) {
 }
 
 // ---------- Mark picked up ----------
+// ---------- Call-in / pickup cycle ----------
+async function logCalledIn(id) {
+  await fetch(`/api/medications/${id}/call-in`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ called_in_date: todayStr() })
+  });
+  loadMeds();
+}
+
 async function markPickedUp(id) {
   await fetch(`/api/medications/${id}/pickup`, {
     method: 'POST',
@@ -520,7 +543,7 @@ async function loadPickupHistory() {
       <div class="history-row">
         <span>${fmtDate(r.picked_up_date)}</span>
         <span class="muted">
-          ${r.refills_remaining_after} refill${r.refills_remaining_after === 1 ? '' : 's'} left after
+          ${r.called_in_date ? `called in ${fmtDate(r.called_in_date)} · ` : ''}${r.refills_remaining_after} refill${r.refills_remaining_after === 1 ? '' : 's'} left after
           ${r.cost_paid != null ? ` · $${r.cost_paid.toFixed(2)}` : ''}
         </span>
       </div>
@@ -665,6 +688,7 @@ document.getElementById('test-reminder-btn').addEventListener('click', async () 
 
 // Expose functions used by inline onclick handlers
 window.markPickedUp = markPickedUp;
+window.logCalledIn = logCalledIn;
 window.startEdit = startEdit;
 window.cancelEdit = cancelEdit;
 window.saveEdit = saveEdit;

@@ -71,7 +71,7 @@ async function createWidget(data) {
       `${data.counts.overdue} overdue · ${data.counts.due_soon} due soon`
     );
     summary.font = Font.systemFont(11);
-    summary.textColor = new Color("#9a9a9a");
+    summary.textColor = new Color("#c7c7c7");
     w.addSpacer(8);
 
     const shown = data.needs_attention.slice(0, 4);
@@ -94,7 +94,7 @@ async function createWidget(data) {
 
       const days = row.addText(daysLabelFor(med));
       days.font = Font.systemFont(10);
-      days.textColor = new Color("#9a9a9a");
+      days.textColor = colorFor(med.status);
       days.rightAlignText();
 
       w.addSpacer(3);
@@ -104,7 +104,7 @@ async function createWidget(data) {
       w.addSpacer(2);
       const more = w.addText(`+${data.needs_attention.length - shown.length} more`);
       more.font = Font.systemFont(10);
-      more.textColor = new Color("#9a9a9a");
+      more.textColor = new Color("#c7c7c7");
     }
   }
 
