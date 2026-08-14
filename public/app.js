@@ -803,38 +803,57 @@ function bindApptTabs() {
 }
 
 async function loadApptDashboard() {
-  const types = [
-    { type: 'therapy', el: 'appt-dash-therapy' },
-    { type: 'dietitian', el: 'appt-dash-dietitian' },
-    { type: 'doctor', el: 'appt-dash-doctor' },
-    { type: 'other', el: 'appt-dash-other' }
-  ];
-  for (const { type, el } of types) {
-    const res = await fetch(`/api/appointments?type=${type}&status=upcoming`);
-    const appts = await res.json();
-    const container = document.getElementById(el);
-    if (!appts.length) {
-      container.innerHTML = '<div class="appt-empty-state">No upcoming appointments.</div>';
-      continue;
-    }
-    container.innerHTML = appts.map(apptCardHtml).join('');
-    container.querySelectorAll('.appt-card').forEach(card => {
-      card.addEventListener('click', () => openApptModal(card.dataset.id));
-    });
+  const types = ['therapy', 'dietitian', 'doctor', 'other'];
+  const results = await Promise.all(
+    types.map(type => fetch(`/api/appointments?type=${type}&status=upcoming`).then(r => r.json()))
+  );
+
+  let all = [];
+  types.forEach((type, i) => {
+    results[i].forEach(a => all.push({ ...a, _type: type }));
+  });
+
+  // Closest to furthest away: ascending by date, then time
+  all.sort((a, b) => {
+    const dateCompare = a.appointment_date.localeCompare(b.appointment_date);
+    if (dateCompare !== 0) return dateCompare;
+    return (a.appointment_time || '').localeCompare(b.appointment_time || '');
+  });
+
+  const container = document.getElementById('appt-dash-all');
+  if (!all.length) {
+    container.innerHTML = '<div class="appt-empty-state">No upcoming appointments.</div>';
+    return;
   }
+  container.innerHTML = all.map(a => apptCardHtml(a, true)).join('');
+  container.querySelectorAll('.appt-card').forEach(card => {
+    card.addEventListener('click', () => openApptModal(card.dataset.id));
+  });
 }
 
-function apptCardHtml(a) {
+function apptCardHtml(a, showTypeLabel = false) {
+  const typeLabel = showTypeLabel
+    ? `<span class="appt-type-badge appt-type-${a._type || a.type}">${APPT_TYPE_LABELS[a._type || a.type]}</span>`
+    : '';
   return `
     <div class="appt-card" data-id="${a.id}">
       <div class="appt-card-top">
         <span class="appt-card-date">${apptFormatDate(a.appointment_date)}${a.appointment_time ? ' · ' + apptFormatTime(a.appointment_time) : ''}</span>
         <span class="appt-status appt-status-${a.status}">${a.status}</span>
       </div>
-      <div class="appt-card-provider">${escapeHtml(a.provider_name || 'No provider listed')}${a.location ? ' — ' + escapeHtml(a.location) : ''}</div>
+      <div class="appt-card-provider">
+        ${typeLabel}${escapeHtml(a.provider_name || 'No provider listed')}${a.location ? ' — ' + escapeHtml(a.location) : ''}
+      </div>
     </div>
   `;
 }
+
+const APPT_TYPE_LABELS = {
+  therapy: 'Therapy / EMDR',
+  dietitian: 'Dietitian',
+  doctor: 'Doctor',
+  other: 'Other'
+};
 
 // ---------- View toggle (Upcoming / History / Prep) ----------
 function bindApptViewToggle() {

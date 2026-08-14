@@ -674,6 +674,25 @@ body {
 .appt-card-top { display: flex; justify-content: space-between; align-items: baseline; }
 .appt-card-date { font-weight: 600; color: var(--text); }
 .appt-card-provider { color: var(--muted); font-size: 0.85rem; margin-top: 0.15rem; }
+
+.appt-type-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: 0.12rem 0.45rem;
+  border-radius: 4px;
+  margin-right: 0.5rem;
+  background: var(--surface2);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.appt-type-therapy { color: var(--green); border-color: var(--green); }
+.appt-type-dietitian { color: var(--amber); border-color: var(--amber); }
+.appt-type-doctor { color: #4a6fa5; border-color: #4a6fa5; }
+.appt-type-other { color: var(--muted); }
+
 .appt-status {
   font-size: 0.72rem;
   padding: 0.2rem 0.55rem;
