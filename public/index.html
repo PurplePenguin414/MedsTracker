@@ -30,7 +30,7 @@
 <div id="app" class="app hidden">
 
   <header class="topbar">
-    <h1>Med Refill Tracker</h1>
+    <h1>Med &amp; Appointment Tracker</h1>
     <div class="topbar-actions">
       <span class="theme-toggle-wrap">
         <span class="theme-toggle-icon">☀️</span>
@@ -40,13 +40,14 @@
         </label>
         <span class="theme-toggle-icon">🌙</span>
       </span>
-      <button id="add-med-btn" class="btn btn-primary">+ Add</button>
+      <button id="add-med-btn" class="btn btn-primary mode-only-meds">+ Add</button>
       <div class="more-menu-wrap">
         <button id="more-menu-btn" class="btn btn-ghost" aria-label="More actions">⋯</button>
         <div id="more-menu-panel" class="more-menu-panel hidden">
           <button type="button" class="more-menu-item" id="export-pdf-btn">Export PDF</button>
           <button type="button" class="more-menu-item" id="export-history-pdf-btn">Export Full History</button>
-          <button type="button" class="more-menu-item" id="test-reminder-btn">Test Discord reminder</button>
+          <button type="button" class="more-menu-item" id="test-reminder-btn">Test med Discord reminder</button>
+          <button type="button" class="more-menu-item" id="test-appt-reminder-btn">Test appointment Discord reminder</button>
           <div class="more-menu-divider"></div>
           <button type="button" class="more-menu-item" id="logout-btn">Log out</button>
         </div>
@@ -54,10 +55,157 @@
     </div>
   </header>
 
-  <div class="summary-strip" id="summary-strip"></div>
+  <div class="mode-tab-row">
+    <button type="button" class="mode-tab-btn active" data-mode="meds">Medications</button>
+    <button type="button" class="mode-tab-btn" data-mode="appointments">Appointments</button>
+  </div>
 
-  <main id="med-list" class="med-list"></main>
+  <div id="meds-view" class="mode-view">
+    <div class="summary-strip" id="summary-strip"></div>
+    <main id="med-list" class="med-list"></main>
+  </div>
 
+  <div id="appointments-view" class="mode-view hidden">
+
+    <nav class="appt-tabs">
+      <button class="appt-tab-btn active" data-type="dashboard">Dashboard</button>
+      <button class="appt-tab-btn" data-type="therapy">Therapy / EMDR</button>
+      <button class="appt-tab-btn" data-type="dietitian">Dietitian</button>
+      <button class="appt-tab-btn" data-type="doctor">Doctor</button>
+      <button class="appt-tab-btn" data-type="other">Other</button>
+    </nav>
+
+    <div id="appt-dashboard-view" class="appt-view-panel">
+      <h2 class="appt-dashboard-heading">Upcoming Appointments</h2>
+      <div class="appt-dashboard-section">
+        <h3 class="appt-dashboard-section-title">Therapy / EMDR</h3>
+        <div id="appt-dash-therapy" class="appt-list"></div>
+      </div>
+      <div class="appt-dashboard-section">
+        <h3 class="appt-dashboard-section-title">Dietitian</h3>
+        <div id="appt-dash-dietitian" class="appt-list"></div>
+      </div>
+      <div class="appt-dashboard-section">
+        <h3 class="appt-dashboard-section-title">Doctor</h3>
+        <div id="appt-dash-doctor" class="appt-list"></div>
+      </div>
+      <div class="appt-dashboard-section">
+        <h3 class="appt-dashboard-section-title">Other</h3>
+        <div id="appt-dash-other" class="appt-list"></div>
+      </div>
+    </div>
+
+    <div class="appt-toolbar hidden" id="appt-type-toolbar">
+      <div class="appt-view-toggle">
+        <button class="appt-view-btn active" data-view="upcoming">Upcoming</button>
+        <button class="appt-view-btn" data-view="history">History</button>
+        <button class="appt-view-btn appt-therapy-only" data-view="prep">Prep Checklist</button>
+      </div>
+      <button id="add-appt-btn" class="btn btn-primary">+ New Appointment</button>
+    </div>
+
+    <div id="appt-upcoming-view" class="appt-view-panel hidden">
+      <div id="appt-upcoming-list" class="appt-list"></div>
+    </div>
+
+    <div id="appt-history-view" class="appt-view-panel hidden">
+      <div id="appt-history-list" class="appt-list"></div>
+    </div>
+
+    <div id="appt-prep-view" class="appt-view-panel appt-therapy-only hidden">
+      <div class="appt-prep-header">
+        <h2>Prep Checklist</h2>
+        <button id="manage-appt-questions-btn" class="btn btn-ghost btn-small">Manage Questions</button>
+      </div>
+      <p class="appt-prep-hint">Select an upcoming therapy appointment to check off what you want to bring up.</p>
+      <select id="appt-prep-select"></select>
+      <div id="appt-prep-checklist" class="appt-prep-checklist"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- Appointment Add/Edit Modal -->
+<div id="appt-modal" class="modal-overlay hidden">
+  <div class="modal modal-wide">
+    <h2 id="appt-modal-title">New Appointment</h2>
+    <form id="appt-form">
+      <input type="hidden" id="appt-id">
+      <input type="hidden" id="appt-type">
+
+      <div class="field-row">
+        <label class="field">
+          Provider Name
+          <input type="text" id="appt-provider-name">
+        </label>
+        <label class="field">
+          Status
+          <select id="appt-status">
+            <option value="upcoming">Upcoming</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="field-row">
+        <label class="field">
+          Date
+          <input type="date" id="appt-date" required>
+        </label>
+        <label class="field">
+          Time
+          <input type="time" id="appt-time">
+        </label>
+      </div>
+
+      <label class="field field-wide">
+        Location
+        <input type="text" id="appt-location">
+      </label>
+
+      <div id="appt-type-specific-fields"></div>
+
+      <label class="field field-wide">
+        Notes
+        <textarea id="appt-notes" rows="3"></textarea>
+      </label>
+
+      <label class="field field-wide">
+        Attachments (PDF, image)
+        <input type="file" id="appt-file-upload" accept=".pdf,.png,.jpg,.jpeg,.webp,.heic,.txt">
+      </label>
+      <div id="appt-attachment-list" class="appt-attachment-list"></div>
+
+      <label class="field-inline">
+        <input type="checkbox" id="appt-reminder-enabled" checked>
+        Enable reminder
+      </label>
+
+      <div class="modal-actions">
+        <button type="button" id="delete-appt-btn" class="btn btn-danger hidden">Delete</button>
+        <button type="submit" class="btn btn-primary">Save Appointment</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Manage Questions Modal -->
+<div id="appt-questions-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h2>EMDR Question Bank</h2>
+    <form id="appt-add-question-form" class="inline-add-form">
+      <div class="field-row">
+        <input type="text" id="appt-new-question-text" placeholder="Add a new question...">
+        <button type="submit" class="btn btn-primary btn-small">Add</button>
+      </div>
+    </form>
+    <div id="appt-question-bank-list" class="appt-question-bank-list"></div>
+    <div class="modal-actions">
+      <button type="button" id="close-appt-questions-btn" class="btn btn-ghost">Close</button>
+    </div>
+  </div>
 </div>
 
 <!-- History Modal: tabbed view with inline "add entry" forms -->

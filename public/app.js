@@ -706,3 +706,472 @@ window.addDoseChange = addDoseChange;
 window.deleteDoseChange = deleteDoseChange;
 
 checkSession();
+
+// ======================================================================
+// ---------- Appointments module ----------
+// Reuses escapeHtml() and todayStr() defined above; does not redefine them.
+// ======================================================================
+
+let apptCurrentType = 'dashboard';
+let apptCurrentView = 'upcoming';
+let apptPendingAttachments = [];
+let apptEditingId = null;
+
+const APPT_TYPE_FIELDS = {
+  therapy: [
+    { key: 'topics_covered', label: 'Topics Covered', type: 'textarea' },
+    { key: 'homework_assigned', label: 'Homework Assigned', type: 'textarea' },
+    { key: 'target_memory', label: 'Target Memory', type: 'text' }
+  ],
+  dietitian: [
+    { key: 'meal_plan_changes', label: 'Meal Plan Changes', type: 'textarea' },
+    { key: 'goals_discussed', label: 'Goals Discussed', type: 'textarea' },
+    { key: 'measurements', label: 'Measurements (optional)', type: 'text' }
+  ],
+  doctor: [
+    { key: 'reason_for_visit', label: 'Reason for Visit', type: 'text' },
+    { key: 'diagnosis_findings', label: 'Diagnosis / Findings', type: 'textarea' },
+    { key: 'prescriptions_referrals', label: 'Prescriptions / Referrals', type: 'textarea' },
+    { key: 'follow_up_needed', label: 'Follow-up Needed', type: 'text' }
+  ],
+  other: []
+};
+
+function apptFormatDate(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+}
+function apptFormatTime(timeStr) {
+  const [h, m] = timeStr.split(':');
+  const hour = parseInt(h);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const h12 = hour % 12 || 12;
+  return `${h12}:${m} ${ampm}`;
+}
+
+// ---------- Mode switcher (Medications / Appointments) ----------
+function bindModeSwitcher() {
+  document.querySelectorAll('.mode-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.mode-tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const mode = btn.dataset.mode;
+
+      document.getElementById('meds-view').classList.toggle('hidden', mode !== 'meds');
+      document.getElementById('appointments-view').classList.toggle('hidden', mode !== 'appointments');
+      document.querySelectorAll('.mode-only-meds').forEach(el => el.classList.toggle('hidden', mode !== 'meds'));
+
+      if (mode === 'appointments' && !apptModuleInitialized) {
+        apptModuleInitialized = true;
+        bindApptTabs();
+        bindApptViewToggle();
+        bindApptModal();
+        bindApptQuestionsModal();
+      }
+    });
+  });
+}
+let apptModuleInitialized = false;
+
+// ---------- Appointment tabs ----------
+function bindApptTabs() {
+  document.querySelectorAll('.appt-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.appt-tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      apptCurrentType = btn.dataset.type;
+
+      if (apptCurrentType === 'dashboard') {
+        document.getElementById('appt-dashboard-view').classList.remove('hidden');
+        document.getElementById('appt-type-toolbar').classList.add('hidden');
+        document.getElementById('appt-upcoming-view').classList.add('hidden');
+        document.getElementById('appt-history-view').classList.add('hidden');
+        document.getElementById('appt-prep-view').classList.add('hidden');
+        loadApptDashboard();
+        return;
+      }
+
+      document.getElementById('appt-dashboard-view').classList.add('hidden');
+      document.getElementById('appt-type-toolbar').classList.remove('hidden');
+
+      const isTherapy = apptCurrentType === 'therapy';
+      document.querySelectorAll('.appt-therapy-only').forEach(el => el.classList.toggle('hidden', !isTherapy));
+      if (!isTherapy && apptCurrentView === 'prep') apptSwitchView('upcoming');
+      else apptSwitchView(apptCurrentView);
+    });
+  });
+}
+
+async function loadApptDashboard() {
+  const types = [
+    { type: 'therapy', el: 'appt-dash-therapy' },
+    { type: 'dietitian', el: 'appt-dash-dietitian' },
+    { type: 'doctor', el: 'appt-dash-doctor' },
+    { type: 'other', el: 'appt-dash-other' }
+  ];
+  for (const { type, el } of types) {
+    const res = await fetch(`/api/appointments?type=${type}&status=upcoming`);
+    const appts = await res.json();
+    const container = document.getElementById(el);
+    if (!appts.length) {
+      container.innerHTML = '<div class="appt-empty-state">No upcoming appointments.</div>';
+      continue;
+    }
+    container.innerHTML = appts.map(apptCardHtml).join('');
+    container.querySelectorAll('.appt-card').forEach(card => {
+      card.addEventListener('click', () => openApptModal(card.dataset.id));
+    });
+  }
+}
+
+function apptCardHtml(a) {
+  return `
+    <div class="appt-card" data-id="${a.id}">
+      <div class="appt-card-top">
+        <span class="appt-card-date">${apptFormatDate(a.appointment_date)}${a.appointment_time ? ' · ' + apptFormatTime(a.appointment_time) : ''}</span>
+        <span class="appt-status appt-status-${a.status}">${a.status}</span>
+      </div>
+      <div class="appt-card-provider">${escapeHtml(a.provider_name || 'No provider listed')}${a.location ? ' — ' + escapeHtml(a.location) : ''}</div>
+    </div>
+  `;
+}
+
+// ---------- View toggle (Upcoming / History / Prep) ----------
+function bindApptViewToggle() {
+  document.querySelectorAll('.appt-view-btn').forEach(btn => {
+    btn.addEventListener('click', () => apptSwitchView(btn.dataset.view));
+  });
+}
+
+function apptSwitchView(view) {
+  apptCurrentView = view;
+  document.querySelectorAll('.appt-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  document.getElementById('appt-upcoming-view').classList.toggle('hidden', view !== 'upcoming');
+  document.getElementById('appt-history-view').classList.toggle('hidden', view !== 'history');
+  document.getElementById('appt-prep-view').classList.toggle('hidden', view !== 'prep');
+
+  if (view === 'upcoming') loadApptUpcoming();
+  if (view === 'history') loadApptHistory();
+  if (view === 'prep') loadApptPrep();
+}
+
+async function loadApptUpcoming() {
+  const res = await fetch(`/api/appointments?type=${apptCurrentType}&status=upcoming`);
+  const appts = await res.json();
+  const container = document.getElementById('appt-upcoming-list');
+  container.innerHTML = appts.length ? appts.map(apptCardHtml).join('') : '<div class="appt-empty-state">No appointments yet.</div>';
+  container.querySelectorAll('.appt-card').forEach(card => card.addEventListener('click', () => openApptModal(card.dataset.id)));
+}
+
+async function loadApptHistory() {
+  const res = await fetch(`/api/appointments/history/${apptCurrentType}`);
+  const appts = await res.json();
+  const container = document.getElementById('appt-history-list');
+  container.innerHTML = appts.length ? appts.map(apptCardHtml).join('') : '<div class="appt-empty-state">No appointments in the last 5 days.</div>';
+  container.querySelectorAll('.appt-card').forEach(card => card.addEventListener('click', () => openApptModal(card.dataset.id)));
+}
+
+// ---------- Appointment Modal ----------
+function bindApptModal() {
+  document.getElementById('add-appt-btn').addEventListener('click', () => openApptModal(null));
+  document.getElementById('appt-form').addEventListener('submit', saveAppt);
+  document.getElementById('delete-appt-btn').addEventListener('click', deleteAppt);
+  document.getElementById('appt-file-upload').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) apptPendingAttachments.push(file);
+  });
+  document.getElementById('appt-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'appt-modal') closeApptModal();
+  });
+}
+
+async function openApptModal(id) {
+  document.getElementById('appt-questions-modal').classList.add('hidden');
+
+  apptEditingId = id;
+  apptPendingAttachments = [];
+  const form = document.getElementById('appt-form');
+  form.reset();
+  document.getElementById('appt-type').value = apptCurrentType === 'dashboard' ? 'therapy' : apptCurrentType;
+  document.getElementById('delete-appt-btn').classList.toggle('hidden', !id);
+  document.getElementById('appt-attachment-list').innerHTML = '';
+
+  renderApptTypeFields(document.getElementById('appt-type').value, {});
+
+  if (id) {
+    const res = await fetch(`/api/appointments/${id}`);
+    const appt = await res.json();
+    document.getElementById('appt-modal-title').textContent = 'Edit Appointment';
+    document.getElementById('appt-id').value = appt.id;
+    document.getElementById('appt-type').value = appt.type;
+    document.getElementById('appt-provider-name').value = appt.provider_name || '';
+    document.getElementById('appt-status').value = appt.status;
+    document.getElementById('appt-date').value = appt.appointment_date;
+    document.getElementById('appt-time').value = appt.appointment_time || '';
+    document.getElementById('appt-location').value = appt.location || '';
+    document.getElementById('appt-notes').value = appt.notes || '';
+    document.getElementById('appt-reminder-enabled').checked = !!appt.reminder_enabled;
+    renderApptTypeFields(appt.type, appt.details, appt.customFields);
+    renderApptAttachments(appt.attachments);
+  } else {
+    document.getElementById('appt-modal-title').textContent = 'New Appointment';
+    document.getElementById('appt-id').value = '';
+    document.getElementById('appt-reminder-enabled').checked = true;
+  }
+
+  document.getElementById('appt-modal').classList.remove('hidden');
+}
+
+function closeApptModal() {
+  document.getElementById('appt-modal').classList.add('hidden');
+}
+
+function renderApptTypeFields(type, details = {}, customFields = []) {
+  const container = document.getElementById('appt-type-specific-fields');
+  if (type === 'other') {
+    container.innerHTML = `
+      <label style="display:block;font-size:0.85rem;color:var(--muted);margin-bottom:0.4rem;">Custom Fields</label>
+      <div id="appt-custom-fields-container"></div>
+      <button type="button" class="appt-add-field-btn" id="appt-add-custom-field-btn">+ Add Field</button>
+    `;
+    const cfContainer = document.getElementById('appt-custom-fields-container');
+    (customFields || []).forEach(f => addApptCustomFieldRow(cfContainer, f.field_label, f.field_value));
+    document.getElementById('appt-add-custom-field-btn').addEventListener('click', () => addApptCustomFieldRow(cfContainer, '', ''));
+    return;
+  }
+  const fields = APPT_TYPE_FIELDS[type] || [];
+  container.innerHTML = fields.map(f => `
+    <label class="field field-wide">
+      ${f.label}
+      ${f.type === 'textarea'
+        ? `<textarea id="appt-field-${f.key}" rows="2">${escapeHtml(details[f.key] || '')}</textarea>`
+        : `<input type="text" id="appt-field-${f.key}" value="${escapeHtml(details[f.key] || '')}">`}
+    </label>
+  `).join('');
+}
+
+function addApptCustomFieldRow(container, label, value) {
+  const row = document.createElement('div');
+  row.className = 'appt-custom-field-row';
+  row.innerHTML = `
+    <input type="text" placeholder="Field name" class="appt-cf-label" value="${escapeHtml(label || '')}">
+    <input type="text" placeholder="Value" class="appt-cf-value" value="${escapeHtml(value || '')}">
+    <button type="button" class="appt-remove-field-btn">&times;</button>
+  `;
+  row.querySelector('.appt-remove-field-btn').addEventListener('click', () => row.remove());
+  container.appendChild(row);
+}
+
+function renderApptAttachments(attachments) {
+  const list = document.getElementById('appt-attachment-list');
+  list.innerHTML = (attachments || []).map(a => `
+    <div class="appt-attachment-item" data-id="${a.id}">
+      <a href="/api/appointment-attachments/file/${a.id}" target="_blank">${escapeHtml(a.original_name)}</a>
+      <button type="button" class="appt-attachment-remove" data-id="${a.id}">Remove</button>
+    </div>
+  `).join('');
+  list.querySelectorAll('.appt-attachment-remove').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await fetch(`/api/appointment-attachments/${btn.dataset.id}`, { method: 'DELETE' });
+      btn.closest('.appt-attachment-item').remove();
+    });
+  });
+}
+
+async function saveAppt(e) {
+  e.preventDefault();
+  const type = document.getElementById('appt-type').value;
+  const id = document.getElementById('appt-id').value;
+
+  const payload = {
+    type,
+    provider_name: document.getElementById('appt-provider-name').value,
+    status: document.getElementById('appt-status').value,
+    appointment_date: document.getElementById('appt-date').value,
+    appointment_time: document.getElementById('appt-time').value,
+    location: document.getElementById('appt-location').value,
+    notes: document.getElementById('appt-notes').value,
+    reminder_enabled: document.getElementById('appt-reminder-enabled').checked
+  };
+
+  if (type === 'other') {
+    const rows = document.querySelectorAll('#appt-custom-fields-container .appt-custom-field-row');
+    payload.customFields = Array.from(rows).map(row => ({
+      field_label: row.querySelector('.appt-cf-label').value,
+      field_value: row.querySelector('.appt-cf-value').value
+    })).filter(f => f.field_label.trim());
+  } else {
+    const fields = APPT_TYPE_FIELDS[type] || [];
+    payload.details = {};
+    fields.forEach(f => {
+      const el = document.getElementById(`appt-field-${f.key}`);
+      if (el) payload.details[f.key] = el.value;
+    });
+  }
+
+  let apptId = id;
+  if (id) {
+    await fetch(`/api/appointments/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  } else {
+    const res = await fetch('/api/appointments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const created = await res.json();
+    apptId = created.id;
+  }
+
+  for (const file of apptPendingAttachments) {
+    const formData = new FormData();
+    formData.append('file', file);
+    await fetch(`/api/appointment-attachments/${apptId}`, { method: 'POST', body: formData });
+  }
+  apptPendingAttachments = [];
+
+  closeApptModal();
+  apptRefreshCurrentView();
+}
+
+async function deleteAppt() {
+  const id = document.getElementById('appt-id').value;
+  if (!id) return;
+  if (!confirm('Delete this appointment? This cannot be undone.')) return;
+  await fetch(`/api/appointments/${id}`, { method: 'DELETE' });
+  closeApptModal();
+  apptRefreshCurrentView();
+}
+
+function apptRefreshCurrentView() {
+  const activeTab = document.querySelector('.appt-tab-btn.active')?.dataset.type;
+  if (activeTab === 'dashboard') {
+    loadApptDashboard();
+  } else if (apptCurrentView === 'upcoming') {
+    loadApptUpcoming();
+  } else if (apptCurrentView === 'history') {
+    loadApptHistory();
+  }
+}
+
+// ---------- Prep Checklist (Therapy only) ----------
+async function loadApptPrep() {
+  const res = await fetch('/api/appointments?type=therapy&status=upcoming');
+  const appts = await res.json();
+  const select = document.getElementById('appt-prep-select');
+
+  if (!appts.length) {
+    select.innerHTML = '<option value="">No upcoming therapy appointments</option>';
+    document.getElementById('appt-prep-checklist').innerHTML = '';
+    return;
+  }
+  select.innerHTML = appts.map(a =>
+    `<option value="${a.id}">${apptFormatDate(a.appointment_date)}${a.provider_name ? ' — ' + escapeHtml(a.provider_name) : ''}</option>`
+  ).join('');
+  select.onchange = () => renderApptPrepChecklist(select.value);
+  renderApptPrepChecklist(select.value);
+}
+
+async function renderApptPrepChecklist(apptId) {
+  const container = document.getElementById('appt-prep-checklist');
+  if (!apptId) { container.innerHTML = ''; return; }
+  const res = await fetch(`/api/appointments/${apptId}`);
+  const appt = await res.json();
+
+  if (!appt.questionChecks.length) {
+    container.innerHTML = '<div class="appt-empty-state">No questions in your bank yet. Add some via "Manage Questions".</div>';
+    return;
+  }
+  container.innerHTML = appt.questionChecks.map(q => `
+    <label class="appt-prep-item">
+      <input type="checkbox" data-question-id="${q.question_id}" ${q.checked ? 'checked' : ''}>
+      <span>${escapeHtml(q.question_text)}</span>
+    </label>
+  `).join('');
+  container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', async () => {
+      const checks = {};
+      checks[cb.dataset.questionId] = cb.checked;
+      await fetch(`/api/appointments/${apptId}/question-checks`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(checks)
+      });
+    });
+  });
+}
+
+// ---------- Manage Questions Modal ----------
+function bindApptQuestionsModal() {
+  document.getElementById('manage-appt-questions-btn').addEventListener('click', openApptQuestionsModal);
+  document.getElementById('close-appt-questions-btn').addEventListener('click', closeApptQuestionsModal);
+  document.getElementById('appt-questions-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'appt-questions-modal') closeApptQuestionsModal();
+  });
+  document.getElementById('appt-add-question-form').addEventListener('submit', addApptQuestion);
+}
+
+function closeApptQuestionsModal() {
+  document.getElementById('appt-questions-modal').classList.add('hidden');
+  loadApptPrep();
+}
+
+async function openApptQuestionsModal() {
+  document.getElementById('appt-modal').classList.add('hidden');
+  document.getElementById('appt-questions-modal').classList.remove('hidden');
+  await renderApptQuestionBank();
+}
+
+async function renderApptQuestionBank() {
+  const res = await fetch('/api/appointment-questions');
+  const questions = await res.json();
+  const list = document.getElementById('appt-question-bank-list');
+  if (!questions.length) {
+    list.innerHTML = '<div class="appt-empty-state">No questions yet — add your first one above.</div>';
+    return;
+  }
+  list.innerHTML = questions.map(q => `
+    <div class="appt-question-bank-item" data-id="${q.id}">
+      <span>${escapeHtml(q.question_text)}</span>
+      <button type="button" class="appt-attachment-remove" data-id="${q.id}">Remove</button>
+    </div>
+  `).join('');
+  list.querySelectorAll('.appt-attachment-remove').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await fetch(`/api/appointment-questions/${btn.dataset.id}`, { method: 'DELETE' });
+      renderApptQuestionBank();
+    });
+  });
+}
+
+async function addApptQuestion(e) {
+  e.preventDefault();
+  const input = document.getElementById('appt-new-question-text');
+  if (!input.value.trim()) return;
+  await fetch('/api/appointment-questions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ question_text: input.value.trim() })
+  });
+  input.value = '';
+  renderApptQuestionBank();
+}
+
+// ---------- Test appointment reminder (wired into existing more-menu) ----------
+document.getElementById('test-appt-reminder-btn')?.addEventListener('click', async () => {
+  closeMoreMenu();
+  try {
+    const res = await fetch('/api/appointment-test-reminder', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed');
+    alert(data.message || 'Appointment reminder check triggered.');
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+});
+
+// ---------- Init ----------
+bindModeSwitcher();
