@@ -767,6 +767,7 @@ function bindModeSwitcher() {
         bindApptViewToggle();
         bindApptModal();
         bindApptQuestionsModal();
+        loadApptDashboard();
       }
     });
   });
