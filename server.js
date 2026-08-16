@@ -7,6 +7,8 @@ const Database = require('better-sqlite3');
 const fs = require('fs');
 const cron = require('node-cron');
 const PDFDocument = require('pdfkit');
+const multer = require('multer');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,10 +19,14 @@ const REMINDER_CRON_SCHEDULE = process.env.REMINDER_CRON_SCHEDULE || '0 8 * * *'
 const REMINDER_TIMEZONE = process.env.REMINDER_TIMEZONE || 'America/Detroit';
 const APP_URL = process.env.APP_URL || '';
 const WIDGET_API_KEY = process.env.WIDGET_API_KEY || '';
+const DISCORD_APPT_WEBHOOK_URL = process.env.DISCORD_APPT_WEBHOOK_URL || '';
+const APPT_REMINDER_LEAD_DAYS = (process.env.APPT_REMINDER_LEAD_DAYS || '1,3').split(',').map(n => parseInt(n.trim(), 10));
 
 // ---------- DB setup ----------
 const dataDir = path.join(__dirname, 'data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+const uploadDir = path.join(dataDir, 'appointment-uploads');
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 const db = new Database(path.join(dataDir, 'meds.db'));
 
 db.exec(`
@@ -80,6 +86,87 @@ CREATE TABLE IF NOT EXISTS dose_changes (
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (medication_id) REFERENCES medications(id)
 );
+`);
+
+// ---------- Appointments module (Therapy/EMDR, Dietitian, Doctor, Other) ----------
+db.exec(`
+CREATE TABLE IF NOT EXISTS appointments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  type TEXT NOT NULL CHECK(type IN ('therapy','dietitian','doctor','other')),
+  provider_name TEXT,
+  appointment_date TEXT NOT NULL,
+  appointment_time TEXT,
+  location TEXT,
+  status TEXT NOT NULL DEFAULT 'upcoming' CHECK(status IN ('upcoming','completed','cancelled')),
+  notes TEXT,
+  reminder_enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS appointment_details (
+  appointment_id INTEGER PRIMARY KEY,
+  topics_covered TEXT,
+  homework_assigned TEXT,
+  target_memory TEXT,
+  meal_plan_changes TEXT,
+  goals_discussed TEXT,
+  measurements TEXT,
+  reason_for_visit TEXT,
+  diagnosis_findings TEXT,
+  prescriptions_referrals TEXT,
+  follow_up_needed TEXT,
+  FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS appointment_custom_fields (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  appointment_id INTEGER NOT NULL,
+  field_label TEXT NOT NULL,
+  field_value TEXT,
+  sort_order INTEGER DEFAULT 0,
+  FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS appointment_attachments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  appointment_id INTEGER NOT NULL,
+  filename TEXT NOT NULL,
+  original_name TEXT NOT NULL,
+  mime_type TEXT,
+  size_bytes INTEGER,
+  uploaded_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS appointment_question_bank (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  question_text TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1,
+  sort_order INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS appointment_question_checks (
+  appointment_id INTEGER NOT NULL,
+  question_id INTEGER NOT NULL,
+  checked INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (appointment_id, question_id),
+  FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE,
+  FOREIGN KEY (question_id) REFERENCES appointment_question_bank(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS appointment_reminder_log (
+  appointment_id INTEGER NOT NULL,
+  lead_days INTEGER NOT NULL,
+  sent_at TEXT NOT NULL,
+  PRIMARY KEY (appointment_id, lead_days),
+  FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_appointments_type ON appointments(type);
+CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(appointment_date);
+CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status);
 `);
 
 // ---------- Middleware ----------
@@ -385,7 +472,315 @@ app.delete('/api/dose-changes/:id', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
-// ---------- Discord reminders ----------
+// ================================================================
+// ---------- Appointments module ----------
+// ================================================================
+
+const APPT_DETAIL_FIELDS = {
+  therapy: ['topics_covered', 'homework_assigned', 'target_memory'],
+  dietitian: ['meal_plan_changes', 'goals_discussed', 'measurements'],
+  doctor: ['reason_for_visit', 'diagnosis_findings', 'prescriptions_referrals', 'follow_up_needed'],
+  other: []
+};
+
+function getFullAppointment(id) {
+  const appt = db.prepare('SELECT * FROM appointments WHERE id = ?').get(id);
+  if (!appt) return null;
+
+  const detailFields = APPT_DETAIL_FIELDS[appt.type] || [];
+  let details = {};
+  if (detailFields.length) {
+    const row = db.prepare('SELECT * FROM appointment_details WHERE appointment_id = ?').get(id);
+    if (row) detailFields.forEach(f => { details[f] = row[f]; });
+  }
+
+  const customFields = appt.type === 'other'
+    ? db.prepare('SELECT id, field_label, field_value, sort_order FROM appointment_custom_fields WHERE appointment_id = ? ORDER BY sort_order, id').all(id)
+    : [];
+
+  const attachments = db.prepare('SELECT id, original_name, mime_type, size_bytes, uploaded_at FROM appointment_attachments WHERE appointment_id = ? ORDER BY uploaded_at').all(id);
+
+  let questionChecks = [];
+  if (appt.type === 'therapy') {
+    questionChecks = db.prepare(`
+      SELECT qb.id AS question_id, qb.question_text, COALESCE(aqc.checked, 0) AS checked
+      FROM appointment_question_bank qb
+      LEFT JOIN appointment_question_checks aqc ON aqc.question_id = qb.id AND aqc.appointment_id = ?
+      WHERE qb.active = 1
+      ORDER BY qb.sort_order, qb.id
+    `).all(id);
+  }
+
+  return { ...appt, details, customFields, attachments, questionChecks };
+}
+
+app.get('/api/appointments', requireAuth, (req, res) => {
+  const { type, status } = req.query;
+  let query = 'SELECT * FROM appointments WHERE 1=1';
+  const params = [];
+  if (type) { query += ' AND type = ?'; params.push(type); }
+  if (status) { query += ' AND status = ?'; params.push(status); }
+  query += ' ORDER BY appointment_date DESC, appointment_time DESC';
+  res.json(db.prepare(query).all(...params));
+});
+
+app.get('/api/appointments/history/:type', requireAuth, (req, res) => {
+  const { type } = req.params;
+  if (!APPT_DETAIL_FIELDS.hasOwnProperty(type)) return res.status(400).json({ error: 'Invalid type' });
+  const rows = db.prepare(`
+    SELECT * FROM appointments
+    WHERE type = ? AND status = 'completed'
+      AND appointment_date >= date('now', '-5 days') AND appointment_date <= date('now')
+    ORDER BY appointment_date DESC, appointment_time DESC
+  `).all(type);
+  res.json(rows.map(r => getFullAppointment(r.id)));
+});
+
+app.get('/api/appointments/:id', requireAuth, (req, res) => {
+  const appt = getFullAppointment(req.params.id);
+  if (!appt) return res.status(404).json({ error: 'Not found' });
+  res.json(appt);
+});
+
+app.post('/api/appointments', requireAuth, (req, res) => {
+  const { type, provider_name, appointment_date, appointment_time, location, status, notes, reminder_enabled, details, customFields } = req.body;
+  if (!type || !APPT_DETAIL_FIELDS.hasOwnProperty(type)) return res.status(400).json({ error: 'Invalid or missing appointment type' });
+  if (!appointment_date) return res.status(400).json({ error: 'appointment_date is required' });
+
+  const result = db.prepare(`
+    INSERT INTO appointments (type, provider_name, appointment_date, appointment_time, location, status, notes, reminder_enabled)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(type, provider_name || null, appointment_date, appointment_time || null, location || null, status || 'upcoming', notes || null, reminder_enabled === false ? 0 : 1);
+  const apptId = result.lastInsertRowid;
+
+  const detailFields = APPT_DETAIL_FIELDS[type];
+  if (detailFields.length && details) {
+    const cols = detailFields.filter(f => details[f] !== undefined);
+    if (cols.length) {
+      db.prepare(`INSERT INTO appointment_details (appointment_id, ${cols.join(', ')}) VALUES (?, ${cols.map(() => '?').join(', ')})`)
+        .run(apptId, ...cols.map(c => details[c]));
+    }
+  }
+  if (type === 'other' && Array.isArray(customFields)) {
+    const insertField = db.prepare('INSERT INTO appointment_custom_fields (appointment_id, field_label, field_value, sort_order) VALUES (?, ?, ?, ?)');
+    customFields.forEach((f, idx) => insertField.run(apptId, f.field_label, f.field_value || null, idx));
+  }
+  res.status(201).json(getFullAppointment(apptId));
+});
+
+app.put('/api/appointments/:id', requireAuth, (req, res) => {
+  const id = req.params.id;
+  const existing = db.prepare('SELECT * FROM appointments WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Not found' });
+
+  const { provider_name, appointment_date, appointment_time, location, status, notes, reminder_enabled, details, customFields } = req.body;
+  db.prepare(`
+    UPDATE appointments SET provider_name=?, appointment_date=?, appointment_time=?, location=?, status=?, notes=?, reminder_enabled=?, updated_at=datetime('now')
+    WHERE id=?
+  `).run(
+    provider_name ?? existing.provider_name,
+    appointment_date ?? existing.appointment_date,
+    appointment_time ?? existing.appointment_time,
+    location ?? existing.location,
+    status ?? existing.status,
+    notes ?? existing.notes,
+    reminder_enabled === false ? 0 : (reminder_enabled === true ? 1 : existing.reminder_enabled),
+    id
+  );
+
+  const detailFields = APPT_DETAIL_FIELDS[existing.type];
+  if (detailFields.length && details) {
+    const cols = detailFields.filter(f => details[f] !== undefined);
+    if (cols.length) {
+      const setClause = cols.map(c => `${c} = ?`).join(', ');
+      db.prepare(`
+        INSERT INTO appointment_details (appointment_id, ${cols.join(', ')}) VALUES (?, ${cols.map(() => '?').join(', ')})
+        ON CONFLICT(appointment_id) DO UPDATE SET ${setClause}
+      `).run(id, ...cols.map(c => details[c]), ...cols.map(c => details[c]));
+    }
+  }
+  if (existing.type === 'other' && Array.isArray(customFields)) {
+    db.prepare('DELETE FROM appointment_custom_fields WHERE appointment_id = ?').run(id);
+    const insertField = db.prepare('INSERT INTO appointment_custom_fields (appointment_id, field_label, field_value, sort_order) VALUES (?, ?, ?, ?)');
+    customFields.forEach((f, idx) => insertField.run(id, f.field_label, f.field_value || null, idx));
+  }
+  res.json(getFullAppointment(id));
+});
+
+app.put('/api/appointments/:id/question-checks', requireAuth, (req, res) => {
+  const id = req.params.id;
+  const appt = db.prepare('SELECT * FROM appointments WHERE id = ?').get(id);
+  if (!appt) return res.status(404).json({ error: 'Not found' });
+  if (appt.type !== 'therapy') return res.status(400).json({ error: 'Question checks only apply to therapy appointments' });
+
+  const upsert = db.prepare(`
+    INSERT INTO appointment_question_checks (appointment_id, question_id, checked) VALUES (?, ?, ?)
+    ON CONFLICT(appointment_id, question_id) DO UPDATE SET checked = excluded.checked
+  `);
+  Object.entries(req.body).forEach(([qId, checked]) => upsert.run(id, qId, checked ? 1 : 0));
+  res.json(getFullAppointment(id));
+});
+
+app.delete('/api/appointments/:id', requireAuth, (req, res) => {
+  const result = db.prepare('DELETE FROM appointments WHERE id = ?').run(req.params.id);
+  if (result.changes === 0) return res.status(404).json({ error: 'Not found' });
+  res.json({ ok: true });
+});
+
+// ---------- Appointment question bank (EMDR prep checklist, Therapy only) ----------
+app.get('/api/appointment-questions', requireAuth, (req, res) => {
+  const includeInactive = req.query.all === 'true';
+  const rows = includeInactive
+    ? db.prepare('SELECT * FROM appointment_question_bank ORDER BY sort_order, id').all()
+    : db.prepare('SELECT * FROM appointment_question_bank WHERE active = 1 ORDER BY sort_order, id').all();
+  res.json(rows);
+});
+
+app.post('/api/appointment-questions', requireAuth, (req, res) => {
+  const { question_text } = req.body;
+  if (!question_text || !question_text.trim()) return res.status(400).json({ error: 'question_text is required' });
+  const maxOrder = db.prepare('SELECT COALESCE(MAX(sort_order), -1) AS m FROM appointment_question_bank').get().m;
+  const result = db.prepare('INSERT INTO appointment_question_bank (question_text, sort_order) VALUES (?, ?)').run(question_text.trim(), maxOrder + 1);
+  res.status(201).json(db.prepare('SELECT * FROM appointment_question_bank WHERE id = ?').get(result.lastInsertRowid));
+});
+
+app.delete('/api/appointment-questions/:id', requireAuth, (req, res) => {
+  const result = db.prepare('DELETE FROM appointment_question_bank WHERE id = ?').run(req.params.id);
+  if (result.changes === 0) return res.status(404).json({ error: 'Not found' });
+  res.json({ ok: true });
+});
+
+// ---------- Appointment attachments ----------
+const ALLOWED_ATTACHMENT_MIME = new Set(['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/heic', 'text/plain']);
+const attachmentStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => cb(null, `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${path.extname(file.originalname)}`)
+});
+const attachmentUpload = multer({
+  storage: attachmentStorage,
+  limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => ALLOWED_ATTACHMENT_MIME.has(file.mimetype) ? cb(null, true) : cb(new Error('Unsupported file type. Allowed: PDF, PNG, JPEG, WEBP, HEIC, TXT'))
+});
+
+app.post('/api/appointment-attachments/:appointmentId', requireAuth, (req, res) => {
+  attachmentUpload.single('file')(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const appt = db.prepare('SELECT id FROM appointments WHERE id = ?').get(req.params.appointmentId);
+    if (!appt) {
+      fs.unlinkSync(req.file.path);
+      return res.status(404).json({ error: 'Appointment not found' });
+    }
+    const result = db.prepare(`
+      INSERT INTO appointment_attachments (appointment_id, filename, original_name, mime_type, size_bytes)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(appt.id, req.file.filename, req.file.originalname, req.file.mimetype, req.file.size);
+    res.status(201).json(db.prepare('SELECT id, original_name, mime_type, size_bytes, uploaded_at FROM appointment_attachments WHERE id = ?').get(result.lastInsertRowid));
+  });
+});
+
+app.get('/api/appointment-attachments/file/:id', requireAuth, (req, res) => {
+  const att = db.prepare('SELECT * FROM appointment_attachments WHERE id = ?').get(req.params.id);
+  if (!att) return res.status(404).json({ error: 'Not found' });
+  const filePath = path.join(uploadDir, att.filename);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File missing on disk' });
+  res.setHeader('Content-Type', att.mime_type || 'application/octet-stream');
+  res.setHeader('Content-Disposition', `inline; filename="${att.original_name}"`);
+  res.sendFile(filePath);
+});
+
+app.delete('/api/appointment-attachments/:id', requireAuth, (req, res) => {
+  const att = db.prepare('SELECT * FROM appointment_attachments WHERE id = ?').get(req.params.id);
+  if (!att) return res.status(404).json({ error: 'Not found' });
+  const filePath = path.join(uploadDir, att.filename);
+  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  db.prepare('DELETE FROM appointment_attachments WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
+// ---------- Appointment reminders (separate Discord webhook from meds) ----------
+function apptAddDays(dateStr, days) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+function apptDaysBetween(fromDateStr, toDateStr) {
+  const from = new Date(fromDateStr + 'T00:00:00');
+  const to = new Date(toDateStr + 'T00:00:00');
+  return Math.round((to - from) / (1000 * 60 * 60 * 24));
+}
+const APPT_TYPE_LABELS = { therapy: 'Therapy / EMDR', dietitian: 'Dietitian', doctor: 'Doctor', other: 'Other' };
+
+function buildApptReminderEmbed(appt, daysUntil) {
+  const label = APPT_TYPE_LABELS[appt.type] || appt.type;
+  const dueText = daysUntil === 0 ? 'today' : daysUntil === 1 ? 'tomorrow' : `in ${daysUntil} days`;
+  return {
+    embeds: [{
+      title: `Upcoming ${label} Appointment`,
+      description: `You have a ${label.toLowerCase()} appointment ${dueText}.`,
+      fields: [
+        { name: 'Date', value: appt.appointment_date, inline: true },
+        { name: 'Time', value: appt.appointment_time || 'Not set', inline: true },
+        { name: 'Provider', value: appt.provider_name || 'Not listed', inline: true },
+        { name: 'Location', value: appt.location || 'Not listed', inline: false }
+      ],
+      url: APP_URL || undefined,
+      color: 0x3f8f5f,
+      timestamp: new Date().toISOString()
+    }]
+  };
+}
+
+async function checkAndSendApptReminders() {
+  if (!DISCORD_APPT_WEBHOOK_URL) return;
+  const today = todayStr();
+
+  for (const leadDays of APPT_REMINDER_LEAD_DAYS) {
+    const targetDate = apptAddDays(today, leadDays);
+    const appts = db.prepare(`
+      SELECT * FROM appointments
+      WHERE appointment_date <= ? AND appointment_date >= ? AND status = 'upcoming' AND reminder_enabled = 1
+    `).all(targetDate, today);
+
+    for (const appt of appts) {
+      const daysUntil = apptDaysBetween(today, appt.appointment_date);
+      const alreadySent = db.prepare('SELECT 1 FROM appointment_reminder_log WHERE appointment_id = ? AND lead_days = ?').get(appt.id, leadDays);
+      if (!alreadySent && daysUntil <= leadDays) {
+        try {
+          const res = await fetch(DISCORD_APPT_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(buildApptReminderEmbed(appt, daysUntil))
+          });
+          if (!res.ok) console.error(`Appointment Discord webhook returned status ${res.status}`);
+        } catch (err) {
+          console.error('Appointment Discord webhook error:', err.message);
+        }
+        db.prepare('INSERT INTO appointment_reminder_log (appointment_id, lead_days, sent_at) VALUES (?, ?, datetime(\'now\'))').run(appt.id, leadDays);
+      }
+    }
+  }
+}
+
+if (DISCORD_APPT_WEBHOOK_URL) {
+  // Run once on boot (catches anything missed while the app was off) then daily at 8am
+  checkAndSendApptReminders();
+  cron.schedule('0 8 * * *', checkAndSendApptReminders, { timezone: REMINDER_TIMEZONE });
+  console.log(`Appointment reminders scheduled (lead days: ${APPT_REMINDER_LEAD_DAYS.join(', ')}, timezone: ${REMINDER_TIMEZONE})`);
+} else {
+  console.log('DISCORD_APPT_WEBHOOK_URL not set — appointment reminder schedule disabled');
+}
+
+app.post('/api/appointment-test-reminder', requireAuth, async (req, res) => {
+  if (!DISCORD_APPT_WEBHOOK_URL) return res.status(400).json({ error: 'DISCORD_APPT_WEBHOOK_URL is not configured in .env' });
+  await checkAndSendApptReminders();
+  res.json({ ok: true, message: 'Appointment reminder check triggered.' });
+});
+
+// ================================================================
+// ---------- Discord reminders (medications) ----------
+// ================================================================
 function getMedsNeedingAttention() {
   const rows = db.prepare(
     'SELECT * FROM medications WHERE archived = 0 ORDER BY name COLLATE NOCASE'
