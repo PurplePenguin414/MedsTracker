@@ -1,17 +1,10 @@
-# Med & Appointment Tracker
+# Med Refill Tracker
 
-Self-hosted medication refill tracker, now merged with an appointment tracker
-for Therapy/EMDR, Dietitian, Doctor, and Other visits. One login, one app,
-two modes — switch between them via the "Medications" / "Appointments" tabs
-under the header.
-
-## Medications module
-
-Tracks each medication's refill interval,
+Self-hosted medication refill tracker. Tracks each medication's refill interval,
 last pickup date, and pharmacy refills remaining — and tells you when to call it
 in next and whether that call goes to the pharmacy or the doctor.
 
-### How it works
+## How it works
 
 For each medication you enter:
 - **Refill interval (days)** — how often you're allowed to call it in
@@ -27,7 +20,7 @@ The app computes:
 Clicking **Mark picked up** logs the pickup, resets the last-picked-up date to today,
 and decrements the refill count by one. Full pickup history is kept per medication.
 
-### As-needed medications
+## As-needed medications
 
 Check "As needed — no fixed refill schedule" in the add/edit form to skip the
 date/interval tracking entirely. These meds never show up as due soon or
@@ -35,34 +28,13 @@ overdue. They still track refills remaining, and if that count hits 0
 they're flagged as "Refills needed" (in the app and in Discord reminders) —
 since even an as-needed med eventually needs a new prescription.
 
-### Pause / resume
+## Pause / resume
 
 The **Pause** button on a medication stops it from being tracked or alerted
 on, without deleting it or losing its pickup history. Useful if a
 prescription was discontinued but you might revisit it, or you're taking a
 break. **Resume** brings it back into normal tracking, picking up right
 where it left off. Paused medications never appear in Discord reminders.
-
-## Appointments module
-
-Tabs for **Therapy/EMDR**, **Dietitian**, **Doctor**, and **Other**, each with
-their own relevant fields (e.g. Therapy tracks topics covered, homework
-assigned, and target memory; Doctor tracks reason for visit, diagnosis,
-prescriptions/referrals, and follow-up needed). A **Dashboard** view shows
-all four types' upcoming appointments at a glance.
-
-Each type has its own **Upcoming** / **History** (last 5 days, most recent
-first) / and, for Therapy only, a **Prep Checklist** view — a reusable EMDR
-question bank you can check off before an appointment, managed via "Manage
-Questions."
-
-Appointments support file attachments (PDF, PNG, JPEG, WEBP, HEIC, TXT, up
-to 25MB) and a separate Discord reminder channel from medications — set
-`DISCORD_APPT_WEBHOOK_URL` in `.env` to a **different** webhook than
-`DISCORD_WEBHOOK_URL`. Reminders fire 1 and 3 days before an appointment by
-default (`APPT_REMINDER_LEAD_DAYS`), check once immediately on app startup
-to catch anything missed while the app was off, and won't double-send for
-an appointment that's already been reminded at a given lead time.
 
 ## iPhone home screen
 
