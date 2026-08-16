@@ -19,6 +19,7 @@ const REMINDER_CRON_SCHEDULE = process.env.REMINDER_CRON_SCHEDULE || '0 8 * * *'
 const REMINDER_TIMEZONE = process.env.REMINDER_TIMEZONE || 'America/Detroit';
 const APP_URL = process.env.APP_URL || '';
 const WIDGET_API_KEY = process.env.WIDGET_API_KEY || '';
+const APPT_API_KEY = process.env.APPT_API_KEY || '';
 const DISCORD_APPT_WEBHOOK_URL = process.env.DISCORD_APPT_WEBHOOK_URL || '';
 const APPT_REMINDER_LEAD_DAYS = (process.env.APPT_REMINDER_LEAD_DAYS || '1,3').split(',').map(n => parseInt(n.trim(), 10));
 
@@ -625,6 +626,23 @@ app.delete('/api/appointments/:id', requireAuth, (req, res) => {
   const result = db.prepare('DELETE FROM appointments WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'Not found' });
   res.json({ ok: true });
+});
+
+// ---------- External read-only appointments API (for Daily Planner sync) ----------
+// Separate API key from WIDGET_API_KEY (meds) so the two integrations stay independent.
+app.get('/api/external/appointments', (req, res) => {
+  if (!APPT_API_KEY) return res.status(503).json({ error: 'APPT_API_KEY not configured on this server' });
+  const providedKey = req.query.key || req.headers['x-api-key'];
+  if (providedKey !== APPT_API_KEY) return res.status(401).json({ error: 'Invalid or missing API key' });
+
+  const { start, end } = req.query;
+  let query = "SELECT id, type, provider_name, appointment_date, appointment_time, location, status FROM appointments WHERE status = 'upcoming'";
+  const params = [];
+  if (start) { query += ' AND appointment_date >= ?'; params.push(start); }
+  if (end) { query += ' AND appointment_date <= ?'; params.push(end); }
+  query += ' ORDER BY appointment_date, appointment_time';
+
+  res.json(db.prepare(query).all(...params));
 });
 
 // ---------- Appointment question bank (EMDR prep checklist, Therapy only) ----------
