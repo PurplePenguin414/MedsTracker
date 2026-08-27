@@ -735,7 +735,7 @@ function buildApptReminderEmbed(appt, daysUntil) {
   const dueText = daysUntil === 0 ? 'today' : daysUntil === 1 ? 'tomorrow' : `in ${daysUntil} days`;
   return {
     embeds: [{
-      title: `Upcoming ${label} Appointment`,
+      title: `🗓️ Upcoming ${label} Appointment`,
       description: `You have a ${label.toLowerCase()} appointment ${dueText}.`,
       fields: [
         { name: 'Date', value: appt.appointment_date, inline: true },
@@ -817,27 +817,27 @@ function buildReminderEmbed(meds) {
   if (overdue.length) {
     lines.push('**Overdue**');
     overdue.forEach(m => {
-      lines.push(`⚠️ **${m.name}** — ${m.next_action} · was due ${m.next_call_date} · ${m.refills_remaining} refill${m.refills_remaining === 1 ? '' : 's'} left`);
+      lines.push(`‼️ **${m.name}** — ${m.next_action} · was due ${m.next_call_date} · ${m.refills_remaining} refill${m.refills_remaining === 1 ? '' : 's'} left`);
     });
   }
   if (dueSoon.length) {
     if (lines.length) lines.push('');
     lines.push('**Due soon**');
     dueSoon.forEach(m => {
-      lines.push(`🟡 **${m.name}** — ${m.next_action} · due ${m.next_call_date} · ${m.refills_remaining} refill${m.refills_remaining === 1 ? '' : 's'} left`);
+      lines.push(`⚠️ **${m.name}** — ${m.next_action} · due ${m.next_call_date} · ${m.refills_remaining} refill${m.refills_remaining === 1 ? '' : 's'} left`);
     });
   }
   if (asNeededOut.length) {
     if (lines.length) lines.push('');
     lines.push('**As-needed meds out of refills**');
     asNeededOut.forEach(m => {
-      lines.push(`🟠 **${m.name}** — ${m.next_action} · no fixed schedule, but 0 refills left`);
+      lines.push(`⚕️ **${m.name}** — ${m.next_action} · no fixed schedule, but 0 refills left`);
     });
   }
 
   return {
     embeds: [{
-      title: 'Med refill reminder',
+      title: '💊 Med refill reminder',
       url: APP_URL || undefined,
       description: lines.join('\n'),
       color: overdue.length ? 0xb8483c : 0xb8862c,
