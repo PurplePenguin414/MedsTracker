@@ -815,7 +815,7 @@ body {
    user hits Print while on the Emergency Info tab. */
 @media print {
   .topbar, .mode-tab-row, #meds-view, #appointments-view,
-  .emg-toolbar, .modal-overlay { display: none !important; }
+  .emg-toolbar, .emg-share-box, .modal-overlay { display: none !important; }
   #emergency-view { display: block !important; }
   .emg-card { border: 1px solid #000; box-shadow: none; }
   body { background: #fff; color: #000; }
