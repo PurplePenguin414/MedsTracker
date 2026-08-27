@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Med Refill Tracker</title>
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=6">
 
 <!-- Home screen / PWA support -->
 <link rel="manifest" href="manifest.json">
@@ -190,9 +190,18 @@
       <div id="emg-contacts-list"></div>
       <div class="add-block-form">
         <div class="field-row">
-          <input type="text" id="emg-new-contact-name" placeholder="Name">
-          <input type="text" id="emg-new-contact-relationship" placeholder="Relationship">
-          <input type="text" id="emg-new-contact-phone" placeholder="Phone">
+          <label class="field">
+            Name
+            <input type="text" id="emg-new-contact-name" placeholder="Name">
+          </label>
+          <label class="field">
+            Relationship
+            <input type="text" id="emg-new-contact-relationship" placeholder="Relationship">
+          </label>
+          <label class="field">
+            Phone
+            <input type="text" id="emg-new-contact-phone" placeholder="Phone">
+          </label>
         </div>
         <button type="button" id="emg-add-contact-btn" class="btn btn-ghost btn-small">+ Add Contact</button>
       </div>

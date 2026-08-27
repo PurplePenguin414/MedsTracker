@@ -809,7 +809,7 @@ body {
   font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em;
   color: var(--muted); margin-bottom: 0.35rem;
 }
-.emg-value { font-size: 0.98rem; line-height: 1.5; }
+.emg-value { font-size: 0.98rem; line-height: 1.5; white-space: pre-line; }
 
 /* Print view: hide everything except the emergency card itself, when the
    user hits Print while on the Emergency Info tab. */
