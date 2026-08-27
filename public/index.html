@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Med Refill Tracker</title>
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 
 <!-- Home screen / PWA support -->
 <link rel="manifest" href="manifest.json">
@@ -62,6 +62,7 @@
   <div class="mode-tab-row">
     <button type="button" class="mode-tab-btn active" data-mode="meds">Medications</button>
     <button type="button" class="mode-tab-btn" data-mode="appointments">Appointments</button>
+    <button type="button" class="mode-tab-btn" data-mode="emergency">Emergency Info</button>
   </div>
 
   <div id="meds-view" class="mode-view">
@@ -113,6 +114,95 @@
 
   </div>
 
+  <div id="emergency-view" class="mode-view hidden">
+    <div class="emg-toolbar">
+      <h2 class="emg-heading">Emergency Info</h2>
+      <div class="emg-toolbar-actions">
+        <button type="button" id="emg-print-btn" class="btn btn-ghost">🖨️ Print</button>
+        <button type="button" id="emg-edit-btn" class="btn btn-primary">Edit</button>
+      </div>
+    </div>
+
+    <div class="emg-card">
+      <div class="emg-section">
+        <div class="emg-label">Blood Type</div>
+        <div class="emg-value" id="emg-blood-type">—</div>
+      </div>
+      <div class="emg-section">
+        <div class="emg-label">Allergies</div>
+        <div class="emg-value" id="emg-allergies">—</div>
+      </div>
+      <div class="emg-section">
+        <div class="emg-label">Medical Conditions</div>
+        <div class="emg-value" id="emg-conditions">—</div>
+      </div>
+      <div class="emg-section">
+        <div class="emg-label">Current Medications</div>
+        <div class="emg-value" id="emg-medications">—</div>
+      </div>
+      <div class="emg-section">
+        <div class="emg-label">Emergency Contacts</div>
+        <div class="emg-value" id="emg-contacts">—</div>
+      </div>
+      <div class="emg-section" id="emg-notes-section">
+        <div class="emg-label">Additional Notes</div>
+        <div class="emg-value" id="emg-notes">—</div>
+      </div>
+    </div>
+
+    <div class="emg-share-box" id="emg-share-box">
+      <div class="emg-label">Shareable link (no login required — for a pet-sitter, etc.)</div>
+      <p id="emg-share-status" style="color: var(--muted); font-size: 0.85rem;">Checking…</p>
+      <div id="emg-share-url-row" class="hidden" style="display:flex; gap:0.5rem; margin-top:0.5rem;">
+        <input type="text" id="emg-share-url-field" readonly style="flex:1;">
+        <button type="button" id="emg-share-copy-btn" class="btn btn-ghost">Copy</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Emergency Info Edit Modal -->
+<div id="emg-edit-modal" class="modal-overlay hidden">
+  <div class="modal modal-wide">
+    <h2>Edit Emergency Info</h2>
+    <form id="emg-edit-form">
+      <div class="field-row">
+        <label class="field">
+          Blood Type
+          <input type="text" id="emg-input-blood-type" placeholder="e.g. O+">
+        </label>
+      </div>
+      <label class="field field-wide">
+        Allergies
+        <textarea id="emg-input-allergies" rows="2" placeholder="Medications, foods, environmental…"></textarea>
+      </label>
+      <label class="field field-wide">
+        Medical Conditions
+        <textarea id="emg-input-conditions" rows="2"></textarea>
+      </label>
+      <label class="field field-wide">
+        Additional Notes
+        <textarea id="emg-input-notes" rows="2" placeholder="Anything else someone should know"></textarea>
+      </label>
+
+      <h3 class="settings-subhead">Emergency Contacts</h3>
+      <div id="emg-contacts-list"></div>
+      <div class="add-block-form">
+        <div class="field-row">
+          <input type="text" id="emg-new-contact-name" placeholder="Name">
+          <input type="text" id="emg-new-contact-relationship" placeholder="Relationship">
+          <input type="text" id="emg-new-contact-phone" placeholder="Phone">
+        </div>
+        <button type="button" id="emg-add-contact-btn" class="btn btn-ghost btn-small">+ Add Contact</button>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" id="emg-close-edit-btn" class="btn btn-ghost">Close</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <!-- Appointment Add/Edit Modal -->
@@ -266,6 +356,6 @@
   </div>
 </div>
 
-<script src="app.js?v=11"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>

@@ -759,6 +759,7 @@ function bindModeSwitcher() {
 
       document.getElementById('meds-view').classList.toggle('hidden', mode !== 'meds');
       document.getElementById('appointments-view').classList.toggle('hidden', mode !== 'appointments');
+      document.getElementById('emergency-view').classList.toggle('hidden', mode !== 'emergency');
       document.querySelectorAll('.mode-only-meds').forEach(el => el.classList.toggle('hidden', mode !== 'meds'));
 
       if (mode === 'appointments' && !apptModuleInitialized) {
@@ -769,10 +770,141 @@ function bindModeSwitcher() {
         bindApptQuestionsModal();
         loadApptDashboard();
       }
+
+      if (mode === 'emergency' && !emgModuleInitialized) {
+        emgModuleInitialized = true;
+        bindEmergencyInfo();
+        loadEmergencyInfo();
+        loadEmergencyShareLink();
+      }
     });
   });
 }
 let apptModuleInitialized = false;
+let emgModuleInitialized = false;
+
+// ---------- Emergency Info ----------
+let emgCurrentContacts = [];
+
+function bindEmergencyInfo() {
+  document.getElementById('emg-edit-btn').addEventListener('click', openEmgEditModal);
+  document.getElementById('emg-close-edit-btn').addEventListener('click', closeEmgEditModal);
+  document.getElementById('emg-edit-modal').addEventListener('click', (e) => { if (e.target.id === 'emg-edit-modal') closeEmgEditModal(); });
+  document.getElementById('emg-edit-form').addEventListener('submit', saveEmergencyInfo);
+  document.getElementById('emg-add-contact-btn').addEventListener('click', addEmgContact);
+  document.getElementById('emg-print-btn').addEventListener('click', () => window.print());
+  document.getElementById('emg-share-copy-btn').addEventListener('click', () => {
+    const field = document.getElementById('emg-share-url-field');
+    field.select();
+    navigator.clipboard.writeText(field.value).then(() => {
+      const btn = document.getElementById('emg-share-copy-btn');
+      const original = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = original; }, 1500);
+    });
+  });
+}
+
+async function loadEmergencyShareLink() {
+  const res = await fetch('/api/emergency-share-url');
+  const data = await res.json();
+  const statusEl = document.getElementById('emg-share-status');
+  const rowEl = document.getElementById('emg-share-url-row');
+
+  if (data.configured) {
+    statusEl.textContent = 'Ready to share:';
+    document.getElementById('emg-share-url-field').value = data.url;
+    rowEl.classList.remove('hidden');
+  } else {
+    statusEl.textContent = 'Not configured — set EMERGENCY_SHARE_KEY in .env to enable sharing.';
+    rowEl.classList.add('hidden');
+  }
+}
+
+async function loadEmergencyInfo() {
+  const res = await fetch('/api/emergency-info');
+  const data = await res.json();
+
+  document.getElementById('emg-blood-type').textContent = data.blood_type || 'Not set';
+  document.getElementById('emg-allergies').textContent = data.allergies || 'None listed';
+  document.getElementById('emg-conditions').textContent = data.conditions || 'None listed';
+  document.getElementById('emg-notes').textContent = data.notes || '—';
+  document.getElementById('emg-notes-section').classList.toggle('hidden', !data.notes);
+
+  document.getElementById('emg-medications').innerHTML = data.medications.length
+    ? data.medications.map(m => `${escapeHtml(m.name)}${m.dosage ? ' — ' + escapeHtml(m.dosage) : ''}`).join('<br>')
+    : 'None currently active';
+
+  document.getElementById('emg-contacts').innerHTML = data.contacts.length
+    ? data.contacts.map(c => `${escapeHtml(c.name)}${c.relationship ? ' (' + escapeHtml(c.relationship) + ')' : ''}${c.phone ? ' — ' + escapeHtml(c.phone) : ''}`).join('<br>')
+    : 'None added';
+
+  emgCurrentContacts = data.contacts;
+}
+
+function openEmgEditModal() {
+  fetch('/api/emergency-info').then(r => r.json()).then(data => {
+    document.getElementById('emg-input-blood-type').value = data.blood_type || '';
+    document.getElementById('emg-input-allergies').value = data.allergies || '';
+    document.getElementById('emg-input-conditions').value = data.conditions || '';
+    document.getElementById('emg-input-notes').value = data.notes || '';
+    emgCurrentContacts = data.contacts;
+    renderEmgContactsList();
+    document.getElementById('emg-edit-modal').classList.remove('hidden');
+  });
+}
+
+function closeEmgEditModal() {
+  document.getElementById('emg-edit-modal').classList.add('hidden');
+}
+
+function renderEmgContactsList() {
+  const container = document.getElementById('emg-contacts-list');
+  container.innerHTML = emgCurrentContacts.map(c => `
+    <div class="week-block-item" style="background:var(--green)" data-id="${c.id}">
+      <span>${escapeHtml(c.name)}${c.relationship ? ' — ' + escapeHtml(c.relationship) : ''}${c.phone ? ' — ' + escapeHtml(c.phone) : ''}</span>
+      <button type="button" class="week-block-remove" data-id="${c.id}">&times;</button>
+    </div>
+  `).join('');
+  container.querySelectorAll('.week-block-remove').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      await fetch(`/api/emergency-contacts/${btn.dataset.id}`, { method: 'DELETE' });
+      emgCurrentContacts = emgCurrentContacts.filter(c => String(c.id) !== btn.dataset.id);
+      renderEmgContactsList();
+    });
+  });
+}
+
+async function addEmgContact() {
+  const name = document.getElementById('emg-new-contact-name').value.trim();
+  const relationship = document.getElementById('emg-new-contact-relationship').value.trim();
+  const phone = document.getElementById('emg-new-contact-phone').value.trim();
+  if (!name) { alert('Name is required.'); return; }
+
+  const res = await fetch('/api/emergency-contacts', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, relationship, phone })
+  });
+  const contact = await res.json();
+  emgCurrentContacts.push(contact);
+  renderEmgContactsList();
+  document.getElementById('emg-new-contact-name').value = '';
+  document.getElementById('emg-new-contact-relationship').value = '';
+  document.getElementById('emg-new-contact-phone').value = '';
+}
+
+async function saveEmergencyInfo(e) {
+  e.preventDefault();
+  const payload = {
+    blood_type: document.getElementById('emg-input-blood-type').value,
+    allergies: document.getElementById('emg-input-allergies').value,
+    conditions: document.getElementById('emg-input-conditions').value,
+    notes: document.getElementById('emg-input-notes').value
+  };
+  await fetch('/api/emergency-info', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+  closeEmgEditModal();
+  loadEmergencyInfo();
+}
 
 // ---------- Appointment tabs ----------
 function bindApptTabs() {

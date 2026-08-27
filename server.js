@@ -51,6 +51,27 @@ CREATE TABLE IF NOT EXISTS pickup_history (
   recorded_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY (medication_id) REFERENCES medications(id)
 );
+
+-- Emergency info card: single row (id=1), blood type/allergies/conditions/
+-- notes entered manually. Current medications are NOT duplicated here —
+-- pulled live from the medications table itself on every view, so this
+-- can never go stale relative to what's actually being taken.
+CREATE TABLE IF NOT EXISTS emergency_info (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  blood_type TEXT,
+  allergies TEXT,
+  conditions TEXT,
+  notes TEXT,
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS emergency_contacts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  relationship TEXT,
+  phone TEXT,
+  sort_order INTEGER DEFAULT 0
+);
 `);
 
 // ---------- Lightweight migrations (safe to run against existing data) ----------
@@ -735,7 +756,7 @@ function buildApptReminderEmbed(appt, daysUntil) {
   const dueText = daysUntil === 0 ? 'today' : daysUntil === 1 ? 'tomorrow' : `in ${daysUntil} days`;
   return {
     embeds: [{
-      title: `🗓️ Upcoming ${label} Appointment`,
+      title: `Upcoming ${label} Appointment`,
       description: `You have a ${label.toLowerCase()} appointment ${dueText}.`,
       fields: [
         { name: 'Date', value: appt.appointment_date, inline: true },
@@ -817,27 +838,27 @@ function buildReminderEmbed(meds) {
   if (overdue.length) {
     lines.push('**Overdue**');
     overdue.forEach(m => {
-      lines.push(`‼️ **${m.name}** — ${m.next_action} · was due ${m.next_call_date} · ${m.refills_remaining} refill${m.refills_remaining === 1 ? '' : 's'} left`);
+      lines.push(`⚠️ **${m.name}** — ${m.next_action} · was due ${m.next_call_date} · ${m.refills_remaining} refill${m.refills_remaining === 1 ? '' : 's'} left`);
     });
   }
   if (dueSoon.length) {
     if (lines.length) lines.push('');
     lines.push('**Due soon**');
     dueSoon.forEach(m => {
-      lines.push(`⚠️ **${m.name}** — ${m.next_action} · due ${m.next_call_date} · ${m.refills_remaining} refill${m.refills_remaining === 1 ? '' : 's'} left`);
+      lines.push(`🟡 **${m.name}** — ${m.next_action} · due ${m.next_call_date} · ${m.refills_remaining} refill${m.refills_remaining === 1 ? '' : 's'} left`);
     });
   }
   if (asNeededOut.length) {
     if (lines.length) lines.push('');
     lines.push('**As-needed meds out of refills**');
     asNeededOut.forEach(m => {
-      lines.push(`⚕️ **${m.name}** — ${m.next_action} · no fixed schedule, but 0 refills left`);
+      lines.push(`🟠 **${m.name}** — ${m.next_action} · no fixed schedule, but 0 refills left`);
     });
   }
 
   return {
     embeds: [{
-      title: '💊 Med refill reminder',
+      title: 'Med refill reminder',
       url: APP_URL || undefined,
       description: lines.join('\n'),
       color: overdue.length ? 0xb8483c : 0xb8862c,
@@ -1082,6 +1103,83 @@ app.get('/api/widget/summary', (req, res) => {
     })),
     app_url: APP_URL || null
   });
+});
+
+// ================================================================
+// ---------- Emergency Info Card ----------
+// ================================================================
+
+const EMERGENCY_SHARE_KEY = process.env.EMERGENCY_SHARE_KEY || '';
+
+function getActiveMedicationsForDisplay() {
+  return db.prepare(`
+    SELECT name, dosage FROM medications
+    WHERE archived = 0 AND paused = 0
+    ORDER BY name
+  `).all();
+}
+
+function getEmergencyInfoPayload() {
+  let info = db.prepare('SELECT * FROM emergency_info WHERE id = 1').get();
+  if (!info) {
+    db.prepare('INSERT INTO emergency_info (id) VALUES (1)').run();
+    info = db.prepare('SELECT * FROM emergency_info WHERE id = 1').get();
+  }
+  const contacts = db.prepare('SELECT * FROM emergency_contacts ORDER BY sort_order, id').all();
+  const medications = getActiveMedicationsForDisplay();
+  return { ...info, contacts, medications };
+}
+
+// Authenticated — normal in-app view/edit
+app.get('/api/emergency-info', requireAuth, (req, res) => {
+  res.json(getEmergencyInfoPayload());
+});
+
+app.put('/api/emergency-info', requireAuth, (req, res) => {
+  const { blood_type, allergies, conditions, notes } = req.body;
+  db.prepare(`
+    UPDATE emergency_info SET blood_type=?, allergies=?, conditions=?, notes=?, updated_at=datetime('now') WHERE id=1
+  `).run(blood_type || null, allergies || null, conditions || null, notes || null);
+  res.json(getEmergencyInfoPayload());
+});
+
+app.post('/api/emergency-contacts', requireAuth, (req, res) => {
+  const { name, relationship, phone } = req.body;
+  if (!name) return res.status(400).json({ error: 'name is required' });
+  const maxOrder = db.prepare('SELECT COALESCE(MAX(sort_order), -1) AS m FROM emergency_contacts').get().m;
+  const result = db.prepare('INSERT INTO emergency_contacts (name, relationship, phone, sort_order) VALUES (?, ?, ?, ?)')
+    .run(name, relationship || null, phone || null, maxOrder + 1);
+  res.status(201).json(db.prepare('SELECT * FROM emergency_contacts WHERE id = ?').get(result.lastInsertRowid));
+});
+
+app.put('/api/emergency-contacts/:id', requireAuth, (req, res) => {
+  const existing = db.prepare('SELECT * FROM emergency_contacts WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Not found' });
+  const { name, relationship, phone } = req.body;
+  db.prepare('UPDATE emergency_contacts SET name=?, relationship=?, phone=? WHERE id=?')
+    .run(name ?? existing.name, relationship ?? existing.relationship, phone ?? existing.phone, req.params.id);
+  res.json(db.prepare('SELECT * FROM emergency_contacts WHERE id = ?').get(req.params.id));
+});
+
+app.delete('/api/emergency-contacts/:id', requireAuth, (req, res) => {
+  const result = db.prepare('DELETE FROM emergency_contacts WHERE id = ?').run(req.params.id);
+  if (result.changes === 0) return res.status(404).json({ error: 'Not found' });
+  res.json({ ok: true });
+});
+
+// Authenticated — get the full shareable URL to copy/display in Settings
+app.get('/api/emergency-share-url', requireAuth, (req, res) => {
+  if (!EMERGENCY_SHARE_KEY) return res.json({ configured: false });
+  res.json({ configured: true, url: `${APP_URL}/emergency.html?key=${EMERGENCY_SHARE_KEY}` });
+});
+
+// NOT behind requireAuth — this is the whole point: a specific person (a
+// pet-sitter, etc.) can open this without an account. Protected by its own
+// dedicated key instead, same pattern as Daily Planner's iCal feed.
+app.get('/api/emergency-info/public', (req, res) => {
+  if (!EMERGENCY_SHARE_KEY) return res.status(503).json({ error: 'Sharing is not configured' });
+  if (req.query.key !== EMERGENCY_SHARE_KEY) return res.status(401).json({ error: 'Invalid or missing key' });
+  res.json(getEmergencyInfoPayload());
 });
 
 app.listen(PORT, () => {

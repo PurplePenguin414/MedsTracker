@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emergency Info</title>
+<link rel="stylesheet" href="style.css?v=1">
+<style>
+  body { padding: 1.5rem; max-width: 700px; margin: 0 auto; }
+  .emg-page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
+  .emg-page-header h1 { font-size: 1.3rem; margin: 0; }
+  @media print { .emg-page-header .btn { display: none; } }
+</style>
+</head>
+<body>
+  <div class="emg-page-header">
+    <h1>Emergency Info</h1>
+    <button type="button" class="btn btn-ghost" onclick="window.print()">🖨️ Print</button>
+  </div>
+
+  <div id="content">
+    <p style="color: var(--muted);">Loading…</p>
+  </div>
+
+  <script>
+    async function load() {
+      const params = new URLSearchParams(window.location.search);
+      const key = params.get('key');
+      const contentEl = document.getElementById('content');
+
+      if (!key) {
+        contentEl.innerHTML = '<p>No access key provided.</p>';
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/emergency-info/public?key=${encodeURIComponent(key)}`);
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'Failed to load');
+        }
+        const data = await res.json();
+        render(data);
+      } catch (err) {
+        contentEl.innerHTML = `<p>Error: ${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str == null ? '' : str;
+      return div.innerHTML;
+    }
+
+    function render(data) {
+      const medsHtml = data.medications.length
+        ? data.medications.map(m => `${escapeHtml(m.name)}${m.dosage ? ' — ' + escapeHtml(m.dosage) : ''}`).join('<br>')
+        : 'None currently active';
+      const contactsHtml = data.contacts.length
+        ? data.contacts.map(c => `${escapeHtml(c.name)}${c.relationship ? ' (' + escapeHtml(c.relationship) + ')' : ''}${c.phone ? ' — ' + escapeHtml(c.phone) : ''}`).join('<br>')
+        : 'None added';
+
+      document.getElementById('content').innerHTML = `
+        <div class="emg-card">
+          <div class="emg-section">
+            <div class="emg-label">Blood Type</div>
+            <div class="emg-value">${escapeHtml(data.blood_type || 'Not set')}</div>
+          </div>
+          <div class="emg-section">
+            <div class="emg-label">Allergies</div>
+            <div class="emg-value">${escapeHtml(data.allergies || 'None listed')}</div>
+          </div>
+          <div class="emg-section">
+            <div class="emg-label">Medical Conditions</div>
+            <div class="emg-value">${escapeHtml(data.conditions || 'None listed')}</div>
+          </div>
+          <div class="emg-section">
+            <div class="emg-label">Current Medications</div>
+            <div class="emg-value">${medsHtml}</div>
+          </div>
+          <div class="emg-section">
+            <div class="emg-label">Emergency Contacts</div>
+            <div class="emg-value">${contactsHtml}</div>
+          </div>
+          ${data.notes ? `
+          <div class="emg-section">
+            <div class="emg-label">Additional Notes</div>
+            <div class="emg-value">${escapeHtml(data.notes)}</div>
+          </div>` : ''}
+        </div>
+      `;
+    }
+
+    load();
+  </script>
+</body>
+</html>

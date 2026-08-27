@@ -793,3 +793,39 @@ body {
 
 .field-inline { display: flex; align-items: center; gap: 0.5rem; margin: 0.75rem 0; font-size: 0.9rem; }
 .field-inline input { width: auto; }
+
+/* ---- Emergency Info ---- */
+.emg-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.6rem; }
+.emg-heading { margin: 0; font-size: 1.2rem; }
+.emg-toolbar-actions { display: flex; gap: 0.6rem; }
+
+.emg-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1.25rem 1.5rem; max-width: 700px;
+}
+.emg-section { padding: 0.9rem 0; border-bottom: 1px solid var(--border); }
+.emg-section:last-child { border-bottom: none; }
+.emg-label {
+  font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em;
+  color: var(--muted); margin-bottom: 0.35rem;
+}
+.emg-value { font-size: 0.98rem; line-height: 1.5; }
+
+/* Print view: hide everything except the emergency card itself, when the
+   user hits Print while on the Emergency Info tab. */
+@media print {
+  .topbar, .mode-tab-row, #meds-view, #appointments-view,
+  .emg-toolbar, .modal-overlay { display: none !important; }
+  #emergency-view { display: block !important; }
+  .emg-card { border: 1px solid #000; box-shadow: none; }
+  body { background: #fff; color: #000; }
+}
+
+.emg-share-box {
+  margin-top: 1.25rem; max-width: 700px; padding: 1rem 1.25rem;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius);
+}
+.emg-share-box input[type="text"] {
+  padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--cream); color: var(--text); font-size: 0.85rem;
+}
