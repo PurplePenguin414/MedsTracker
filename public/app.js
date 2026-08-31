@@ -825,6 +825,8 @@ async function loadEmergencyInfo() {
   const res = await fetch('/api/emergency-info');
   const data = await res.json();
 
+  document.getElementById('emg-full-name').textContent = data.full_name || 'Not set';
+  document.getElementById('emg-dob').textContent = data.date_of_birth || 'Not set';
   document.getElementById('emg-blood-type').textContent = data.blood_type || 'Not set';
   document.getElementById('emg-allergies').textContent = data.allergies || 'None listed';
   document.getElementById('emg-conditions').textContent = data.conditions || 'None listed';
@@ -844,6 +846,8 @@ async function loadEmergencyInfo() {
 
 function openEmgEditModal() {
   fetch('/api/emergency-info').then(r => r.json()).then(data => {
+    document.getElementById('emg-input-full-name').value = data.full_name || '';
+    document.getElementById('emg-input-dob').value = data.date_of_birth || '';
     document.getElementById('emg-input-blood-type').value = data.blood_type || '';
     document.getElementById('emg-input-allergies').value = data.allergies || '';
     document.getElementById('emg-input-conditions').value = data.conditions || '';
@@ -896,6 +900,8 @@ async function addEmgContact() {
 async function saveEmergencyInfo(e) {
   e.preventDefault();
   const payload = {
+    full_name: document.getElementById('emg-input-full-name').value,
+    date_of_birth: document.getElementById('emg-input-dob').value,
     blood_type: document.getElementById('emg-input-blood-type').value,
     allergies: document.getElementById('emg-input-allergies').value,
     conditions: document.getElementById('emg-input-conditions').value,
