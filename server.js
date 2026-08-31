@@ -1140,7 +1140,16 @@ app.get('/api/emergency-info', requireAuth, (req, res) => {
 app.put('/api/emergency-info', requireAuth, (req, res) => {
   const { full_name, date_of_birth, blood_type, allergies, conditions, notes } = req.body;
   db.prepare(`
-    UPDATE emergency_info SET full_name=?, date_of_birth=?, blood_type=?, allergies=?, conditions=?, notes=?, updated_at=datetime('now') WHERE id=1
+    INSERT INTO emergency_info (id, full_name, date_of_birth, blood_type, allergies, conditions, notes, updated_at)
+    VALUES (1, ?, ?, ?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(id) DO UPDATE SET
+      full_name = excluded.full_name,
+      date_of_birth = excluded.date_of_birth,
+      blood_type = excluded.blood_type,
+      allergies = excluded.allergies,
+      conditions = excluded.conditions,
+      notes = excluded.notes,
+      updated_at = excluded.updated_at
   `).run(full_name || null, date_of_birth || null, blood_type || null, allergies || null, conditions || null, notes || null);
   res.json(getEmergencyInfoPayload());
 });

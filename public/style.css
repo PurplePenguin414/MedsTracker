@@ -813,16 +813,26 @@ body {
 
 /* Print view: hide everything except the emergency card itself, when the
    user hits Print while on the Emergency Info tab. */
-.emg-identity-value { font-size: 1.3rem; font-weight: 700; }
+.emg-identity-value { font-size: 1.15rem; font-weight: 700; }
+.emg-personal-sub { font-size: 0.9rem; color: var(--muted); margin-top: 0.25rem; }
 
 @media print {
   .topbar, .mode-tab-row, #meds-view, #appointments-view,
-  .emg-toolbar, .emg-share-box, .modal-overlay { display: none !important; }
+  .emg-toolbar-actions, .emg-share-box, .modal-overlay { display: none !important; }
   #emergency-view { display: block !important; padding: 0 !important; margin: 0 !important; }
-  .emg-card { border: 2px solid #000; box-shadow: none; max-width: 100% !important; padding: 0.75in; }
-  .emg-section { break-inside: avoid; }
-  body { background: #fff; color: #000; padding: 0 !important; }
-  @page { margin: 0.5in; }
+  .emg-toolbar { margin-bottom: 0.75rem; }
+  .emg-heading { font-size: 1.1rem; margin: 0; }
+  .emg-card {
+    border: none;
+    box-shadow: none;
+    max-width: 100% !important;
+    padding: 0;
+  }
+  .emg-label { font-size: 0.68rem; }
+  .emg-value { font-size: 0.85rem; }
+  .emg-section { padding: 0.5rem 0; break-inside: avoid; }
+  body { background: #fff; color: #000; padding: 0 !important; font-size: 11pt; }
+  @page { margin: 0.6in; }
 }
 
 .emg-share-box {
