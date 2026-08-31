@@ -124,6 +124,14 @@
     </div>
 
     <div class="emg-card">
+      <div class="emg-section emg-identity">
+        <div class="emg-label">Name</div>
+        <div class="emg-value emg-identity-value" id="emg-full-name">—</div>
+      </div>
+      <div class="emg-section emg-identity">
+        <div class="emg-label">Date of Birth</div>
+        <div class="emg-value" id="emg-dob">—</div>
+      </div>
       <div class="emg-section">
         <div class="emg-label">Blood Type</div>
         <div class="emg-value" id="emg-blood-type">—</div>
@@ -167,6 +175,16 @@
   <div class="modal modal-wide">
     <h2>Edit Emergency Info</h2>
     <form id="emg-edit-form">
+      <div class="field-row">
+        <label class="field">
+          Full Name
+          <input type="text" id="emg-input-full-name" placeholder="e.g. Megan Gibbs">
+        </label>
+        <label class="field">
+          Date of Birth
+          <input type="date" id="emg-input-dob">
+        </label>
+      </div>
       <div class="field-row">
         <label class="field">
           Blood Type
