@@ -9,7 +9,8 @@
   body { padding: 1.5rem; max-width: 700px; margin: 0 auto; }
   .emg-page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; }
   .emg-page-header h1 { font-size: 1.3rem; margin: 0; }
-  @media print { .emg-page-header .btn { display: none; } }
+  @media print { .emg-page-header .btn { display: none; } body { padding: 0; } .emg-card { max-width: 100%; padding: 0.75in; } }
+  @page { margin: 0.5in; }
 </style>
 </head>
 <body>
@@ -62,6 +63,14 @@
 
       document.getElementById('content').innerHTML = `
         <div class="emg-card">
+          <div class="emg-section emg-identity">
+            <div class="emg-label">Name</div>
+            <div class="emg-value emg-identity-value">${escapeHtml(data.full_name || 'Not set')}</div>
+          </div>
+          <div class="emg-section emg-identity">
+            <div class="emg-label">Date of Birth</div>
+            <div class="emg-value">${escapeHtml(data.date_of_birth || 'Not set')}</div>
+          </div>
           <div class="emg-section">
             <div class="emg-label">Blood Type</div>
             <div class="emg-value">${escapeHtml(data.blood_type || 'Not set')}</div>
