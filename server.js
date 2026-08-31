@@ -73,6 +73,8 @@ CREATE TABLE IF NOT EXISTS emergency_contacts (
   sort_order INTEGER DEFAULT 0
 );
 `);
+ensureColumn('emergency_info', 'full_name', 'TEXT');
+ensureColumn('emergency_info', 'date_of_birth', 'TEXT');
 
 // ---------- Lightweight migrations (safe to run against existing data) ----------
 function ensureColumn(table, column, definition) {
@@ -1136,10 +1138,10 @@ app.get('/api/emergency-info', requireAuth, (req, res) => {
 });
 
 app.put('/api/emergency-info', requireAuth, (req, res) => {
-  const { blood_type, allergies, conditions, notes } = req.body;
+  const { full_name, date_of_birth, blood_type, allergies, conditions, notes } = req.body;
   db.prepare(`
-    UPDATE emergency_info SET blood_type=?, allergies=?, conditions=?, notes=?, updated_at=datetime('now') WHERE id=1
-  `).run(blood_type || null, allergies || null, conditions || null, notes || null);
+    UPDATE emergency_info SET full_name=?, date_of_birth=?, blood_type=?, allergies=?, conditions=?, notes=?, updated_at=datetime('now') WHERE id=1
+  `).run(full_name || null, date_of_birth || null, blood_type || null, allergies || null, conditions || null, notes || null);
   res.json(getEmergencyInfoPayload());
 });
 
