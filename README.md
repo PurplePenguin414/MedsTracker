@@ -118,7 +118,7 @@ the bottom so it's clear what you're not currently taking.
 
 ## Period tracker
 
-The **Period** tab tracks cycles. Tap **Period started today** / **Period ended today**, add past periods, or tap any calendar day to log flow, symptoms and notes. The next period is predicted from the median of your last 6 cycle lengths (28 days / 5 days until there is history), with a range once there are 3+ cycles. Login required; nothing here is exposed through the public Emergency link or API keys. Run tests with `npm test`.
+The **Period** tab tracks cycles. Tap **Period started today** / **Period ended today**, add past periods, or tap any calendar day to log flow, symptoms and notes. The next period is predicted from the median of your last 6 cycle lengths (28 days / 5 days until there is history), with a range once there are 3+ cycles. Login required; nothing here is exposed through the public Emergency link or API keys. Use **Export for doctor** for a PDF or CSV report (3, 6, 12 months or all time) of logged periods, cycle lengths, symptoms and notes. Run tests with `npm test`.
 
 ## Discord reminders
 

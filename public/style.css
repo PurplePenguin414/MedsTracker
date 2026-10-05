@@ -903,4 +903,7 @@ body {
 .period-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
 .period-chip { padding: 7px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font: inherit; font-size: 0.85rem; cursor: pointer; }
 .period-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
-.period-cal-card { max-width: 480px; }
+.period-cal-card { max-width: 560px; margin: 0 auto 14px; }
+.period-toolbar-btns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.period-export-actions { flex-wrap: wrap; }
+.period-toolbar { flex-wrap: wrap; } .period-heading { white-space: nowrap; }

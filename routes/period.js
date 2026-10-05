@@ -1,7 +1,9 @@
 'use strict';
 
 const express = require('express');
+const PDFDocument = require('pdfkit');
 const P = require('../lib/period');
+const R = require('../lib/period-report');
 
 // Period tracker API. Everything here requires the normal login session —
 // nothing from this module is exposed through the public Emergency link, the
@@ -127,6 +129,31 @@ module.exports = function periodRoutes(db, requireAuth, getToday) {
     if (!P.isValidDate(req.params.date)) return res.status(400).json({ error: 'Date must be a valid date.' });
     db.prepare('DELETE FROM period_day_logs WHERE log_date = ?').run(req.params.date);
     res.json({ ok: true });
+  });
+
+  // ---------- Export for doctors ----------
+  const reportFor = (req) => {
+    const range = R.RANGES[req.query.range] ? req.query.range : '6m';
+    const logs = db.prepare('SELECT log_date, flow, symptoms, notes FROM period_day_logs').all().map(parseLog);
+    return { report: R.buildReport({ cycles: listCycles(), logs, range, today: getToday() }), range };
+  };
+
+  router.get('/export/pdf', (req, res) => {
+    const { report, range } = reportFor(req);
+    const today = getToday();
+    const doc = new PDFDocument({ margin: 50, size: 'LETTER' });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="cycle-report-${range}-${today}.pdf"`);
+    doc.pipe(res);
+    R.renderPdf(doc, report, today);
+    doc.end();
+  });
+
+  router.get('/export/csv', (req, res) => {
+    const { report, range } = reportFor(req);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="cycle-report-${range}-${getToday()}.csv"`);
+    res.send('\uFEFF' + R.reportCsv(report));
   });
 
   return router;

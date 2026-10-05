@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Med Refill Tracker</title>
-<link rel="stylesheet" href="style.css?v=10">
+<link rel="stylesheet" href="style.css?v=12">
 
 <!-- Home screen / PWA support -->
 <link rel="manifest" href="manifest.json">
@@ -167,7 +167,10 @@
   <div id="period-view" class="mode-view hidden">
     <div class="period-toolbar">
       <h2 class="period-heading">Period Tracker</h2>
-      <button type="button" id="period-add-btn" class="btn btn-ghost">+ Add past period</button>
+      <div class="period-toolbar-btns">
+        <button type="button" id="period-export-btn" class="btn btn-ghost">Export for doctor</button>
+        <button type="button" id="period-add-btn" class="btn btn-ghost">+ Add past period</button>
+      </div>
     </div>
 
     <div id="period-load-error" class="period-msg period-msg-error hidden"></div>
@@ -221,6 +224,26 @@
         <button type="submit" class="btn btn-primary">Save</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Period: export report for doctors -->
+<div id="period-export-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h2>Export for doctor</h2>
+    <p class="period-muted">A report of your logged periods, cycle lengths, symptoms and notes. Only what you entered is included, with no predictions.</p>
+    <div class="period-field-label">Time range</div>
+    <div id="period-export-range" class="period-chips">
+      <button type="button" class="period-chip" data-range="3m">3 months</button>
+      <button type="button" class="period-chip on" data-range="6m">6 months</button>
+      <button type="button" class="period-chip" data-range="12m">12 months</button>
+      <button type="button" class="period-chip" data-range="all">All time</button>
+    </div>
+    <div class="modal-actions period-export-actions">
+      <button type="button" id="period-export-cancel" class="btn btn-ghost">Close</button>
+      <button type="button" id="period-export-csv" class="btn btn-ghost">Download CSV</button>
+      <button type="button" id="period-export-pdf" class="btn btn-primary">Download PDF</button>
+    </div>
   </div>
 </div>
 
@@ -461,6 +484,6 @@
 </div>
 
 <script src="app.js?v=14"></script>
-<script src="period.js?v=1"></script>
+<script src="period.js?v=2"></script>
 </body>
 </html>

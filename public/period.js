@@ -16,6 +16,7 @@
     flow: '',
     symptoms: new Set(),
     wired: false,
+    exportRange: '6m',
   };
 
   // ---------- date helpers (UTC day math, DST-safe) ----------
@@ -407,6 +408,17 @@
       } else if (b.dataset.act === 'delete-cycle') deleteCycle(id);
     });
 
+    $('period-export-btn').addEventListener('click', () => $('period-export-modal').classList.remove('hidden'));
+    $('period-export-cancel').addEventListener('click', () => $('period-export-modal').classList.add('hidden'));
+    $('period-export-range').addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-range]');
+      if (!b) return;
+      state.exportRange = b.dataset.range;
+      document.querySelectorAll('#period-export-range .period-chip').forEach((c) => c.classList.toggle('on', c === b));
+    });
+    $('period-export-pdf').addEventListener('click', () => { window.location.href = `/api/period/export/pdf?range=${state.exportRange}`; });
+    $('period-export-csv').addEventListener('click', () => { window.location.href = `/api/period/export/csv?range=${state.exportRange}`; });
+
     $('period-cycle-form').addEventListener('submit', saveCycle);
     $('period-cycle-cancel').addEventListener('click', closeCycleModal);
     $('period-day-form').addEventListener('submit', saveDay);
@@ -428,11 +440,11 @@
     });
 
     // Click on the dark backdrop closes a modal.
-    for (const id of ['period-cycle-modal', 'period-day-modal']) {
+    for (const id of ['period-cycle-modal', 'period-day-modal', 'period-export-modal']) {
       $(id).addEventListener('mousedown', (ev) => { if (ev.target === $(id)) $(id).classList.add('hidden'); });
     }
     document.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Escape') { closeCycleModal(); closeDayModal(); }
+      if (ev.key === 'Escape') { closeCycleModal(); closeDayModal(); $('period-export-modal').classList.add('hidden'); }
     });
   }
 
