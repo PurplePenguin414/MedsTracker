@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Med Refill Tracker</title>
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 
 <!-- Home screen / PWA support -->
 <link rel="manifest" href="manifest.json">
@@ -63,6 +63,7 @@
     <button type="button" class="mode-tab-btn active" data-mode="meds">Medications</button>
     <button type="button" class="mode-tab-btn" data-mode="appointments">Appointments</button>
     <button type="button" class="mode-tab-btn" data-mode="emergency">Emergency Info</button>
+    <button type="button" class="mode-tab-btn" data-mode="period">Period</button>
   </div>
 
   <div id="meds-view" class="mode-view">
@@ -163,6 +164,87 @@
     </div>
   </div>
 
+  <div id="period-view" class="mode-view hidden">
+    <div class="period-toolbar">
+      <h2 class="period-heading">Period Tracker</h2>
+      <button type="button" id="period-add-btn" class="btn btn-ghost">+ Add past period</button>
+    </div>
+
+    <div id="period-load-error" class="period-msg period-msg-error hidden"></div>
+    <div class="summary-strip" id="period-summary"></div>
+    <div class="period-today" id="period-today"></div>
+
+    <div class="period-cal-card">
+      <div class="period-cal-head">
+        <button type="button" id="period-prev" class="btn btn-ghost btn-small" aria-label="Previous month">‹</button>
+        <div class="period-cal-title" id="period-cal-title"></div>
+        <button type="button" id="period-next" class="btn btn-ghost btn-small" aria-label="Next month">›</button>
+      </div>
+      <div class="period-cal-dow"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
+      <div class="period-cal-grid" id="period-cal-grid"></div>
+      <div class="period-legend">
+        <span><i class="period-dot is-period"></i> Period</span>
+        <span><i class="period-dot is-predicted"></i> Expected</span>
+        <span><i class="period-dot is-log"></i> Logged</span>
+      </div>
+      <button type="button" id="period-today-btn" class="btn btn-ghost btn-small">Jump to today</button>
+    </div>
+
+    <h3 class="period-subhead">History</h3>
+    <div id="period-history"></div>
+  </div>
+
+</div>
+
+<!-- Period: add/edit a period -->
+<div id="period-cycle-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h2 id="period-cycle-title">Add period</h2>
+    <form id="period-cycle-form">
+      <div class="field-row">
+        <label class="field">
+          First day
+          <input type="date" id="period-cycle-start" required>
+        </label>
+        <label class="field">
+          Last day <span class="optional">(blank if it's ongoing)</span>
+          <input type="date" id="period-cycle-end">
+        </label>
+      </div>
+      <label class="field field-wide">
+        Notes <span class="optional">(optional)</span>
+        <textarea id="period-cycle-notes" rows="2" maxlength="1000"></textarea>
+      </label>
+      <div id="period-cycle-error" class="period-msg period-msg-error hidden"></div>
+      <div class="modal-actions">
+        <button type="button" id="period-cycle-cancel" class="btn btn-ghost">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Period: log a day -->
+<div id="period-day-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h2 id="period-day-title">Log day</h2>
+    <form id="period-day-form">
+      <div class="period-field-label">Flow</div>
+      <div id="period-flow-options" class="period-chips"></div>
+      <div class="period-field-label">Symptoms</div>
+      <div id="period-symptom-options" class="period-chips"></div>
+      <label class="field field-wide">
+        Notes <span class="optional">(optional)</span>
+        <textarea id="period-day-notes" rows="2" maxlength="1000"></textarea>
+      </label>
+      <div id="period-day-error" class="period-msg period-msg-error hidden"></div>
+      <div class="modal-actions">
+        <button type="button" id="period-day-clear" class="btn btn-ghost">Clear day</button>
+        <button type="button" id="period-day-cancel" class="btn btn-ghost">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <!-- Emergency Info Edit Modal -->
@@ -378,6 +460,7 @@
   </div>
 </div>
 
-<script src="app.js?v=13"></script>
+<script src="app.js?v=14"></script>
+<script src="period.js?v=1"></script>
 </body>
 </html>

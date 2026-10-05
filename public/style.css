@@ -843,3 +843,64 @@ body {
   padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px;
   background: var(--cream); color: var(--text); font-size: 0.85rem;
 }
+
+/* ======================================================================
+   Period tracker
+   ====================================================================== */
+.mode-tab-row { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.mode-tab-btn { white-space: nowrap; flex: 0 0 auto; }
+
+@media print { #period-view { display: none !important; } }
+
+.period-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.75rem; }
+.period-heading { font-size: 1.15rem; margin: 0; }
+.period-subhead { font-size: 0.95rem; margin: 1.25rem 0 0.5rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.period-muted { color: var(--muted); font-size: 0.85rem; }
+#period-summary { grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+#period-summary .summary-card { padding: 12px; }
+#period-summary .summary-card .num { font-size: 21px; }
+#period-summary .summary-card.late .num { color: var(--amber); }
+
+.period-today { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px; }
+.period-line, .period-hint { margin: 0 0 10px; line-height: 1.45; }
+.period-hint { color: var(--muted); }
+.period-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.period-msg { padding: 8px 10px; border-radius: 8px; font-size: 0.88rem; margin: 10px 0; }
+.period-msg-error { background: var(--red-bg); color: var(--red); }
+
+.period-cal-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+.period-cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.period-cal-title { font-weight: 600; }
+.period-cal-dow, .period-cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.period-cal-dow span { text-align: center; font-size: 0.72rem; color: var(--muted); padding-bottom: 4px; }
+.period-cell {
+  position: relative; aspect-ratio: 1 / 1; min-height: 38px; border: 1px solid transparent; border-radius: 10px;
+  background: transparent; color: var(--text); font: inherit; font-size: 0.9rem; cursor: pointer; padding: 0;
+}
+.period-cell.empty { cursor: default; }
+.period-cell:hover:not(:disabled):not(.empty) { background: var(--surface2); }
+.period-cell.is-period { background: var(--red); color: #fff; }
+.period-cell.is-period:hover { background: var(--red) !important; opacity: 0.9; }
+.period-cell.is-predicted { border: 1.5px dashed var(--red); color: var(--red); }
+.period-cell.is-today { outline: 2px solid var(--accent); outline-offset: -2px; font-weight: 700; }
+.period-cell.is-future { opacity: 0.45; cursor: default; }
+.period-logdot { position: absolute; bottom: 4px; left: 50%; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--accent); }
+.period-cell.is-period .period-logdot { background: #fff; }
+.period-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.78rem; color: var(--muted); margin: 10px 0; }
+.period-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: -1px; margin-right: 4px; }
+.period-dot.is-period { background: var(--red); }
+.period-dot.is-predicted { border: 1.5px dashed var(--red); }
+.period-dot.is-log { background: var(--accent); width: 6px; height: 6px; vertical-align: 1px; }
+
+.period-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 8px; }
+.period-row-range { font-weight: 600; }
+.period-note { font-size: 0.85rem; margin-top: 4px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.period-row-btns { display: flex; gap: 6px; flex: 0 0 auto; }
+.period-row-btns .is-armed { background: var(--red-bg); color: var(--red); border-color: var(--red); }
+
+.period-field-label { font-size: 0.85rem; font-weight: 600; margin: 4px 0 6px; }
+.period-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.period-chip { padding: 7px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface2); color: var(--text); font: inherit; font-size: 0.85rem; cursor: pointer; }
+.period-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.period-cal-card { max-width: 480px; }

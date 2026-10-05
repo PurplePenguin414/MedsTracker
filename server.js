@@ -112,6 +112,10 @@ CREATE TABLE IF NOT EXISTS dose_changes (
 );
 `);
 
+// ---------- Period tracker tables (logic lives in lib/period.js) ----------
+const periodLib = require('./lib/period');
+periodLib.initPeriodTables(db);
+
 // ---------- Appointments module (Therapy/EMDR, Dietitian, Doctor, Other) ----------
 db.exec(`
 CREATE TABLE IF NOT EXISTS appointments (
@@ -227,6 +231,9 @@ app.post('/api/logout', (req, res) => {
 app.get('/api/session', (req, res) => {
   res.json({ loggedIn: !!(req.session && req.session.loggedIn) });
 });
+
+// ---------- Period tracker routes (all require login; see routes/period.js) ----------
+app.use('/api/period', require('./routes/period')(db, requireAuth, () => periodLib.todayIn(REMINDER_TIMEZONE)));
 
 // ---------- Helpers ----------
 function daysBetween(a, b) {
