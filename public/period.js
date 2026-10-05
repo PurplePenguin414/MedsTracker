@@ -89,7 +89,7 @@
       const last = diff(c.start_date, end) < 0 ? c.start_date : end;
       for (let d = c.start_date; diff(d, last) >= 0; d = addDays(d, 1)) marks[d] = 'period';
     }
-    if (stats.predictedNextStart && !ongoing()) {
+    if (stats.predictedNextStart) {
       const len = stats.typicalPeriodLength || 5;
       for (let i = 0; i < len; i++) {
         const d = addDays(stats.predictedNextStart, i);
@@ -154,7 +154,9 @@
     }
 
     if (cur) {
-      parts.push(`<p class="period-line">Started <b>${esc(nice(cur.start_date))}</b>.</p>`);
+      let line = `Started <b>${esc(nice(cur.start_date))}</b>.`;
+      if (stats.predictedNextStart) line += ` Next one expected around <b>${esc(nice(stats.predictedNextStart))}</b>.`;
+      parts.push(`<p class="period-line">${line}</p>`);
     } else if (stats.predictedNextStart) {
       let line = `Next period expected around <b>${esc(nice(stats.predictedNextStart))}</b>`;
       if (stats.rangeEarliest && stats.rangeLatest && stats.rangeEarliest !== stats.rangeLatest) {
