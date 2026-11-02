@@ -1193,6 +1193,11 @@ app.get('/api/emergency-info/public', (req, res) => {
   res.json(getEmergencyInfoPayload());
 });
 
+// ---------- Period tracker (logic in lib/period.js; routes require login) ----------
+const periodLib = require('./lib/period');
+periodLib.initPeriodTables(db);
+app.use('/api/period', require('./routes/period')(db, requireAuth, () => periodLib.todayIn(REMINDER_TIMEZONE)));
+
 app.listen(PORT, () => {
   console.log(`Med tracker running on port ${PORT}`);
 });

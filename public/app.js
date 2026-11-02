@@ -760,6 +760,7 @@ function bindModeSwitcher() {
       document.getElementById('meds-view').classList.toggle('hidden', mode !== 'meds');
       document.getElementById('appointments-view').classList.toggle('hidden', mode !== 'appointments');
       document.getElementById('emergency-view').classList.toggle('hidden', mode !== 'emergency');
+    document.getElementById('period-view').classList.toggle('hidden', mode !== 'period');
       document.querySelectorAll('.mode-only-meds').forEach(el => el.classList.toggle('hidden', mode !== 'meds'));
 
       if (mode === 'appointments' && !apptModuleInitialized) {
@@ -771,7 +772,10 @@ function bindModeSwitcher() {
         loadApptDashboard();
       }
 
-      if (mode === 'emergency' && !emgModuleInitialized) {
+      // period.js owns the Period tab; it loads fresh data every time the tab opens.
+    if (mode === 'period' && window.openPeriodTab) window.openPeriodTab();
+
+    if (mode === 'emergency' && !emgModuleInitialized) {
         emgModuleInitialized = true;
         bindEmergencyInfo();
         loadEmergencyInfo();
