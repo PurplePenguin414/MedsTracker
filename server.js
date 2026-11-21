@@ -1198,6 +1198,54 @@ const periodLib = require('./lib/period');
 periodLib.initPeriodTables(db);
 app.use('/api/period', require('./routes/period')(db, requireAuth, () => periodLib.todayIn(REMINDER_TIMEZONE)));
 
+// ---------- Therapy session notes ----------
+// Each session is one row; the answers live in a JSON blob so the template
+// can change without a migration.
+db.exec(`
+CREATE TABLE IF NOT EXISTS therapy_notes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  session_date TEXT NOT NULL,
+  data TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+`);
+
+function serializeTherapyNote(r) {
+  let data = {};
+  try { data = JSON.parse(r.data || '{}'); } catch (e) {}
+  return { id: r.id, session_date: r.session_date, data, created_at: r.created_at, updated_at: r.updated_at };
+}
+
+app.get('/api/therapy-notes', requireAuth, (req, res) => {
+  const rows = db.prepare('SELECT * FROM therapy_notes ORDER BY session_date DESC, id DESC').all();
+  res.json(rows.map(serializeTherapyNote));
+});
+
+app.post('/api/therapy-notes', requireAuth, (req, res) => {
+  const { session_date, data } = req.body;
+  if (!session_date) return res.status(400).json({ error: 'Session date is required' });
+  const result = db.prepare('INSERT INTO therapy_notes (session_date, data) VALUES (?, ?)')
+    .run(session_date, JSON.stringify(data || {}));
+  res.status(201).json(serializeTherapyNote(db.prepare('SELECT * FROM therapy_notes WHERE id = ?').get(result.lastInsertRowid)));
+});
+
+app.put('/api/therapy-notes/:id', requireAuth, (req, res) => {
+  const existing = db.prepare('SELECT * FROM therapy_notes WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Not found' });
+  const { session_date, data } = req.body;
+  if (!session_date) return res.status(400).json({ error: 'Session date is required' });
+  db.prepare("UPDATE therapy_notes SET session_date = ?, data = ?, updated_at = datetime('now') WHERE id = ?")
+    .run(session_date, JSON.stringify(data || {}), req.params.id);
+  res.json(serializeTherapyNote(db.prepare('SELECT * FROM therapy_notes WHERE id = ?').get(req.params.id)));
+});
+
+app.delete('/api/therapy-notes/:id', requireAuth, (req, res) => {
+  const result = db.prepare('DELETE FROM therapy_notes WHERE id = ?').run(req.params.id);
+  if (result.changes === 0) return res.status(404).json({ error: 'Not found' });
+  res.json({ ok: true });
+});
+
 app.listen(PORT, () => {
   console.log(`Med tracker running on port ${PORT}`);
 });

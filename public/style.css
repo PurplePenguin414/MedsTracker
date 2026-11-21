@@ -924,3 +924,33 @@ body[data-theme="dark"] textarea::placeholder { color: var(--muted); opacity: 0.
 .period-toolbar-btns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .period-export-actions { flex-wrap: wrap; }
 .period-toolbar { flex-wrap: wrap; } .period-heading { white-space: nowrap; }
+
+/* ---------- Therapy Notes ---------- */
+.th-empty { color: var(--muted); font-size: 0.9rem; padding: 1rem 0; }
+.th-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 0.75rem; }
+.th-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; padding: 0.9rem 1rem; cursor: pointer; }
+.th-pills { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.35rem; }
+.th-pill { background: var(--accent-bg); color: var(--accent); border-radius: 999px; padding: 0.1rem 0.6rem; font-size: 0.75rem; }
+.th-snippet { color: var(--muted); font-size: 0.85rem; margin-top: 0.4rem; }
+.th-chevron { color: var(--muted); }
+.th-detail { padding: 0 1rem 1rem; border-top: 1px solid var(--border); }
+.th-section h4 { margin: 1rem 0 0.4rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.th-row { margin-bottom: 0.65rem; }
+.th-label { font-size: 0.78rem; color: var(--muted); }
+.th-value { white-space: pre-wrap; font-size: 0.92rem; }
+.th-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+.th-delete { color: var(--red); }
+.th-form { max-width: 720px; }
+.th-form .field { margin-bottom: 0.9rem; }
+.th-form input[type="text"], .th-form input[type="date"], .th-form select, .th-form textarea {
+  width: 100%; margin-top: 5px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--text); font-size: 14px; font-family: inherit;
+}
+.th-form-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem 1rem; margin-bottom: 0.75rem; }
+.th-form-section summary { cursor: pointer; font-weight: 600; margin-bottom: 0.5rem; }
+.th-hint { color: var(--muted); font-size: 0.82rem; margin: 0 0 0.75rem; }
+.th-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem; }
+.th-chip { background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 999px; padding: 0.3rem 0.8rem; font-size: 0.82rem; cursor: pointer; font-family: inherit; }
+.th-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+body[data-theme="dark"] .th-form input, body[data-theme="dark"] .th-form select, body[data-theme="dark"] .th-form textarea { color-scheme: dark; }
+@media print { #therapy-view { display: none !important; } }

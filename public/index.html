@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Med Refill Tracker</title>
-<link rel="stylesheet" href="style.css?v=11">
+<link rel="stylesheet" href="style.css?v=12">
 
 <!-- Home screen / PWA support -->
 <link rel="manifest" href="manifest.json">
@@ -63,6 +63,7 @@
     <button type="button" class="mode-tab-btn active" data-mode="meds">Medications</button>
     <button type="button" class="mode-tab-btn" data-mode="appointments">Appointments</button>
     <button type="button" class="mode-tab-btn" data-mode="period">Period</button>
+    <button type="button" class="mode-tab-btn" data-mode="therapy">Therapy Notes</button>
     <button type="button" class="mode-tab-btn" data-mode="emergency">Emergency Info</button>
   </div>
 
@@ -219,6 +220,10 @@
   </div>
 </div>
 
+
+  <div id="therapy-view" class="mode-view hidden">
+    <div id="therapy-root"></div>
+  </div>
 
   <div id="emergency-view" class="mode-view hidden">
     <div class="emg-toolbar">
@@ -484,7 +489,8 @@
   </div>
 </div>
 
-<script src="app.js?v=14"></script>
+<script src="app.js?v=15"></script>
+<script src="therapy.js?v=1"></script>
 <script src="period.js?v=1"></script>
 </body>
 </html>
