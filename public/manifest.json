@@ -1,6 +1,6 @@
 {
-  "name": "Med Refill Tracker",
-  "short_name": "Meds",
+  "name": "My Health",
+  "short_name": "My Health",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f7f5f0",

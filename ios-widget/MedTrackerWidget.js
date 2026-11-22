@@ -1,4 +1,4 @@
-// Med Refill Tracker — iOS Home Screen Widget
+// My Health — iOS Home Screen Widget
 // Requires the free "Scriptable" app from the App Store.
 //
 // SETUP:
@@ -12,7 +12,7 @@
 // The widget refreshes periodically on iOS's own schedule (usually every
 // 15-60 min); tap the widget to jump straight into the app.
 
-const WIDGET_URL = "https://meds.megangibbs.net/api/widget/summary";
+const WIDGET_URL = "https://health.megangibbs.net/api/widget/summary";
 const WIDGET_KEY = "PASTE_YOUR_WIDGET_API_KEY_HERE";
 
 async function getData() {
@@ -49,13 +49,13 @@ async function createWidget(data) {
   w.setPadding(14, 14, 14, 14);
 
   if (data.error) {
-    const t = w.addText("Couldn't load Med Tracker");
+    const t = w.addText("Couldn't load My Health");
     t.font = Font.mediumSystemFont(13);
     t.textColor = new Color("#b8483c");
     return w;
   }
 
-  const title = w.addText("💊 Med Tracker");
+  const title = w.addText("💊 My Health");
   title.font = Font.boldSystemFont(15);
   title.textColor = new Color("#ffffff");
   w.addSpacer(6);

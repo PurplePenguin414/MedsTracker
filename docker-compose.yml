@@ -1,12 +1,10 @@
-version: "3.8"
-
 services:
-  med-tracker:
+  med-tracker:            # service/container name kept for existing installs
     build: .
     container_name: med-tracker
     restart: unless-stopped
     ports:
-      - "127.0.0.1:3030:3000"
+      - "127.0.0.1:3030:3000"   # bound to localhost; put a reverse proxy in front
     volumes:
       - ./data:/app/data
     env_file:

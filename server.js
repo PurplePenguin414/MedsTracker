@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS dose_changes (
 );
 `);
 
-// ---------- Appointments module (Therapy/EMDR, Dietitian, Doctor, Other) ----------
+// ---------- Appointments module (Therapy, Dietitian, Doctor, Other) ----------
 db.exec(`
 CREATE TABLE IF NOT EXISTS appointments (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -668,7 +668,7 @@ app.get('/api/external/appointments', (req, res) => {
   res.json(db.prepare(query).all(...params));
 });
 
-// ---------- Appointment question bank (EMDR prep checklist, Therapy only) ----------
+// ---------- Appointment question bank (therapy prep checklist) ----------
 app.get('/api/appointment-questions', requireAuth, (req, res) => {
   const includeInactive = req.query.all === 'true';
   const rows = includeInactive
@@ -921,7 +921,7 @@ app.post('/api/test-reminder', requireAuth, async (req, res) => {
       await fetch(DISCORD_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: `✅ Med Tracker test ping — webhook is working. Nothing is due soon or overdue right now.${APP_URL ? `\n${APP_URL}` : ''}` })
+        body: JSON.stringify({ content: `✅ My Health test ping — webhook is working. Nothing is due soon or overdue right now.${APP_URL ? `\n${APP_URL}` : ''}` })
       });
     } else {
       await sendDiscordReminder(meds);
@@ -1247,5 +1247,5 @@ app.delete('/api/therapy-notes/:id', requireAuth, (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Med tracker running on port ${PORT}`);
+  console.log(`My Health running on port ${PORT}`);
 });

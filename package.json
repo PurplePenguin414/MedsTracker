@@ -1,7 +1,7 @@
 {
-  "name": "med-tracker",
+  "name": "my-health",
   "version": "1.0.0",
-  "description": "Self-hosted medication refill tracker",
+  "description": "Self-hosted personal health tracker: medication refills, appointments, period, therapy notes and emergency info",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
