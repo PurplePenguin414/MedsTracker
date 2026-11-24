@@ -24,8 +24,10 @@ test('validatePromptInput rejects empty, whitespace-only, non-string and over-lo
   assert.equal(J.validatePromptInput({ category: 'sad', text: 'a'.repeat(J.MAX_TEXT) }).error, undefined);
 });
 
-test('the section list has the 6 feelings and 6 stored themes (Random is not stored)', () => {
-  assert.equal(J.FEELINGS.length, 6);
+test('the section list has the 7 feelings and 6 stored themes (Random is not stored)', () => {
+  assert.equal(J.FEELINGS.length, 7);
+  assert.ok(J.CATEGORY_KEYS.has('anxious'));
+  assert.equal(J.FEELINGS.find(f => f.key === 'lonely').label, 'Lonely');
   assert.equal(J.THEMES.length, 6);
   assert.ok(!J.CATEGORY_KEYS.has('random'));
 });

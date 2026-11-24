@@ -2,7 +2,7 @@
 // The app ships with no prompts. Everything here is added by the user and stored
 // on the server (/api/journal), so it syncs across devices.
 //   Part 1: tap a feeling to see every prompt saved under it.
-//   Part 2: tap a theme to get one random prompt ("Random" draws from all of them).
+//   Part 2: tap any theme or feeling to get one random prompt ("Random" draws from every saved prompt).
 //   Part 3: add a prompt to any section. Remove any prompt (tap twice).
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -135,7 +135,8 @@
 
   function renderThemes(newPick) {
     themesEl.replaceChildren();
-    [...state.themes.slice(0, 4), RANDOM, ...state.themes.slice(4)].forEach(t => {
+    // Themes in the order they were asked for (Random fifth), then every feeling too.
+    [...state.themes.slice(0, 4), RANDOM, ...state.themes.slice(4), ...state.feelings].forEach(t => {
       themesEl.appendChild(makeChip(t.label, null, state.activeTheme === t.key, () => {
         state.activeTheme = t.key;
         state.shown = null;
@@ -144,7 +145,7 @@
     });
 
     themeCardEl.replaceChildren();
-    const t = [...state.themes, RANDOM].find(x => x.key === state.activeTheme);
+    const t = [...state.themes, RANDOM, ...state.feelings].find(x => x.key === state.activeTheme);
     if (!t) { themeCardEl.classList.add('hidden'); return; }
     themeCardEl.classList.remove('hidden');
 
