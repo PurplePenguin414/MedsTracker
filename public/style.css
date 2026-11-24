@@ -954,3 +954,32 @@ body[data-theme="dark"] textarea::placeholder { color: var(--muted); opacity: 0.
 .th-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 body[data-theme="dark"] .th-form input, body[data-theme="dark"] .th-form select, body[data-theme="dark"] .th-form textarea { color-scheme: dark; }
 @media print { #therapy-view { display: none !important; } }
+
+/* ---------- Journal prompts ---------- */
+.jr-heading { margin: 0.25rem 0 0.75rem; font-size: 1.15rem; }
+.jr-section { margin-bottom: 1.5rem; max-width: 720px; }
+.jr-sub { margin: 0 0 0.5rem; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.jr-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.jr-chip { background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 999px; padding: 0.4rem 0.9rem; font-size: 0.88rem; cursor: pointer; font-family: inherit; }
+.jr-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.jr-box, .jr-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.9rem 1rem; margin-top: 0.75rem; }
+.jr-list { list-style: none; margin: 0; padding: 0; }
+.jr-list li { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; padding: 0.6rem 0; border-top: 1px solid var(--border); }
+.jr-list li:first-child { border-top: 0; padding-top: 0; }
+.jr-list li:last-child { padding-bottom: 0; }
+.jr-list-text { white-space: pre-wrap; font-size: 0.95rem; }
+.jr-empty { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.jr-card-tag { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); margin-bottom: 0.4rem; }
+.jr-card-text { margin: 0 0 0.9rem; font-size: 1.05rem; line-height: 1.5; white-space: pre-wrap; }
+.jr-card-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.jr-remove { flex: 0 0 auto; color: var(--red); }
+.jr-remove.is-armed { background: var(--red-bg); border-color: var(--red); }
+.jr-form { display: flex; flex-direction: column; gap: 0.4rem; }
+.jr-form label { font-size: 0.78rem; color: var(--muted); margin-top: 0.4rem; }
+.jr-form select, .jr-form textarea { width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 14px; font-family: inherit; }
+.jr-form .btn { align-self: flex-start; margin-top: 0.6rem; }
+.jr-msg { padding: 8px 10px; border-radius: 8px; font-size: 0.88rem; margin: 10px 0; }
+.jr-msg-error { background: var(--red-bg); color: var(--red); }
+.jr-msg-ok { background: var(--accent-bg); color: var(--accent); }
+body[data-theme="dark"] .jr-form select, body[data-theme="dark"] .jr-form textarea { color-scheme: dark; }
+@media print { #journal-view { display: none !important; } }

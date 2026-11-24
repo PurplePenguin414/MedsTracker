@@ -762,6 +762,7 @@ function bindModeSwitcher() {
       document.getElementById('emergency-view').classList.toggle('hidden', mode !== 'emergency');
       document.getElementById('period-view').classList.toggle('hidden', mode !== 'period');
       document.getElementById('therapy-view').classList.toggle('hidden', mode !== 'therapy');
+      document.getElementById('journal-view').classList.toggle('hidden', mode !== 'journal');
       document.querySelectorAll('.mode-only-meds').forEach(el => el.classList.toggle('hidden', mode !== 'meds'));
 
       if (mode === 'appointments' && !apptModuleInitialized) {
@@ -776,6 +777,8 @@ function bindModeSwitcher() {
       // period.js owns the Period tab; it loads fresh data every time the tab opens.
       if (mode === 'period' && window.openPeriodTab) window.openPeriodTab();
       if (mode === 'therapy') initTherapyNotes();
+      // journal.js owns the Journal tab; it reloads the saved prompts every time the tab opens.
+      if (mode === 'journal' && window.openJournalTab) window.openJournalTab();
 
       if (mode === 'emergency' && !emgModuleInitialized) {
         emgModuleInitialized = true;

@@ -1198,6 +1198,10 @@ const periodLib = require('./lib/period');
 periodLib.initPeriodTables(db);
 app.use('/api/period', require('./routes/period')(db, requireAuth, () => periodLib.todayIn(REMINDER_TIMEZONE)));
 
+// ---------- Journal prompts (the user's own; logic in lib/journal.js; routes require login) ----------
+require('./lib/journal').initJournalTables(db);
+app.use('/api/journal', require('./routes/journal')(db, requireAuth));
+
 // ---------- Therapy session notes ----------
 // Each session is one row; the answers live in a JSON blob so the template
 // can change without a migration.

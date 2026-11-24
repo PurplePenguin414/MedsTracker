@@ -8,6 +8,7 @@ A small, self-hosted personal health tracker. One login, one SQLite file, no clo
 | **Appointments** | Therapy, dietitian, doctor and other visits with type-specific fields, attachments, prep checklist and Discord reminders. |
 | **Period** | Cycle tracking with predictions and a doctor-ready PDF/CSV report. |
 | **Therapy Notes** | A guided before/after journal for each therapy session, exportable to Markdown (works well with Obsidian). |
+| **Journal** | Your own journal prompts, grouped by feeling (angry, sad, lonely…) and by theme, with a random pick per theme. Ships empty; you add and remove every prompt. |
 | **Emergency Info** | A printable card with allergies, conditions, contacts and your current medications, plus an optional no-login share link. |
 
 It is built for **one person** (a single shared password, not multi-user accounts). It stores sensitive data, so run it behind HTTPS and keep backups — see [Security](#security).

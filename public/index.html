@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>My Health</title>
-<link rel="stylesheet" href="style.css?v=14">
+<link rel="stylesheet" href="style.css?v=15">
 
 <!-- Home screen / PWA support -->
 <link rel="manifest" href="manifest.json">
@@ -64,6 +64,7 @@
     <button type="button" class="mode-tab-btn" data-mode="appointments">Appointments</button>
     <button type="button" class="mode-tab-btn" data-mode="period">Period</button>
     <button type="button" class="mode-tab-btn" data-mode="therapy">Therapy Notes</button>
+    <button type="button" class="mode-tab-btn" data-mode="journal">Journal</button>
     <button type="button" class="mode-tab-btn" data-mode="emergency">Emergency Info</button>
   </div>
 
@@ -223,6 +224,34 @@
 
   <div id="therapy-view" class="mode-view hidden">
     <div id="therapy-root"></div>
+  </div>
+
+  <div id="journal-view" class="mode-view hidden">
+    <h2 class="jr-heading">Journal prompts</h2>
+
+    <section class="jr-section">
+      <h3 class="jr-sub">When you’re feeling…</h3>
+      <div id="journal-feelings" class="jr-chips"></div>
+      <div id="journal-feeling-prompts" class="jr-box hidden"></div>
+    </section>
+
+    <section class="jr-section">
+      <h3 class="jr-sub">Pick a theme</h3>
+      <div id="journal-themes" class="jr-chips"></div>
+      <div id="journal-theme-card" class="jr-card hidden"></div>
+    </section>
+
+    <section class="jr-section">
+      <h3 class="jr-sub">Add a prompt</h3>
+      <form id="journal-add-form" class="jr-form">
+        <label for="journal-add-category">Section</label>
+        <select id="journal-add-category"></select>
+        <label for="journal-add-text">Prompt</label>
+        <textarea id="journal-add-text" rows="3" maxlength="500" placeholder="Type your prompt…"></textarea>
+        <button type="submit" class="btn btn-primary">Add prompt</button>
+      </form>
+      <div id="journal-msg" class="jr-msg hidden"></div>
+    </section>
   </div>
 
   <div id="emergency-view" class="mode-view hidden">
@@ -489,8 +518,9 @@
   </div>
 </div>
 
-<script src="app.js?v=16"></script>
+<script src="app.js?v=17"></script>
 <script src="therapy.js?v=2"></script>
 <script src="period.js?v=1"></script>
+<script src="journal.js?v=1"></script>
 </body>
 </html>
